@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Play, FileText, HelpCircle, CheckCircle, Circle, ChevronRight, ChevronDown, BookOpen, Video, Headphones } from "lucide-react";
+import { ArrowLeft, Play, FileText, MessageSquare, CheckCircle, Circle, ChevronRight, ChevronDown, BookOpen, Video, Headphones, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ const ProjectDetail = () => {
   const [selectedChapterId, setSelectedChapterId] = useState<string>("ch1");
   const [selectedSubchapterId, setSelectedSubchapterId] = useState<string>("sub1");
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set(["ch1"]));
+  const [generatingVideo, setGeneratingVideo] = useState<boolean>(false);
 
   // Mock syllabus data based on the schema
   const syllabus = {
@@ -36,7 +37,7 @@ const ProjectDetail = () => {
           id: "sub1",
           title: "What is Psychology?",
           order_index: 1,
-          text_description: "An overview of psychology as a scientific discipline...",
+          text_description: "An overview of psychology as a scientific discipline that studies behavior and mental processes through scientific methods.",
           is_completed: true,
           content_generated: true,
         },
@@ -44,7 +45,7 @@ const ProjectDetail = () => {
           id: "sub2",
           title: "History of Psychology",
           order_index: 2,
-          text_description: "Evolution of psychological thought from ancient times...",
+          text_description: "Evolution of psychological thought from ancient philosophical roots to modern scientific approaches and major schools of thought.",
           is_completed: true,
           content_generated: true,
         },
@@ -52,7 +53,7 @@ const ProjectDetail = () => {
           id: "sub3",
           title: "Research Methods",
           order_index: 3,
-          text_description: "Scientific methods used in psychological research...",
+          text_description: "Scientific methods used in psychological research including experimental design, data collection, and statistical analysis.",
           is_completed: false,
           content_generated: true,
         },
@@ -63,21 +64,21 @@ const ProjectDetail = () => {
       title: "Biological Psychology",
       order_index: 2,
       is_generated: true,
-      completion_percentage: 33,
+      completion_percentage: 50,
       subchapters: [
         {
           id: "sub4",
           title: "The Nervous System",
           order_index: 1,
-          text_description: "Structure and function of the nervous system...",
+          text_description: "Structure and function of the central and peripheral nervous systems including neurons, synapses, and neural communication.",
           is_completed: true,
           content_generated: true,
         },
         {
           id: "sub5",
-          title: "Brain Structure",
+          title: "Brain Structure and Function",
           order_index: 2,
-          text_description: "Major brain regions and their functions...",
+          text_description: "Major brain regions including the cerebral cortex, limbic system, and brainstem, and their specialized functions.",
           is_completed: false,
           content_generated: true,
         },
@@ -85,7 +86,15 @@ const ProjectDetail = () => {
           id: "sub6",
           title: "Neurotransmitters",
           order_index: 3,
-          text_description: "Chemical messengers in the brain...",
+          text_description: "Chemical messengers in the brain including dopamine, serotonin, and acetylcholine and their effects on behavior.",
+          is_completed: false,
+          content_generated: false,
+        },
+        {
+          id: "sub7",
+          title: "Brain Plasticity",
+          order_index: 4,
+          text_description: "The brain's ability to reorganize and adapt throughout life, including neuroplasticity and recovery from injury.",
           is_completed: false,
           content_generated: false,
         },
@@ -95,9 +104,59 @@ const ProjectDetail = () => {
       id: "ch3",
       title: "Learning and Memory",
       order_index: 3,
-      is_generated: false,
+      is_generated: true,
+      completion_percentage: 25,
+      subchapters: [
+        {
+          id: "sub8",
+          title: "Classical Conditioning",
+          order_index: 1,
+          text_description: "Pavlov's discovery of associative learning and how neutral stimuli become conditioned to elicit responses.",
+          is_completed: true,
+          content_generated: true,
+        },
+        {
+          id: "sub9",
+          title: "Operant Conditioning",
+          order_index: 2,
+          text_description: "Skinner's principles of reinforcement and punishment in shaping behavior through consequences.",
+          is_completed: false,
+          content_generated: false,
+        },
+        {
+          id: "sub10",
+          title: "Memory Systems",
+          order_index: 3,
+          text_description: "Different types of memory including sensory, short-term, and long-term memory systems and their characteristics.",
+          is_completed: false,
+          content_generated: false,
+        },
+      ]
+    },
+    {
+      id: "ch4",
+      title: "Cognitive Psychology",
+      order_index: 4,
+      is_generated: true,
       completion_percentage: 0,
-      subchapters: []
+      subchapters: [
+        {
+          id: "sub11",
+          title: "Attention and Perception",
+          order_index: 1,
+          text_description: "How we selectively focus on information and interpret sensory input to understand our environment.",
+          is_completed: false,
+          content_generated: false,
+        },
+        {
+          id: "sub12",
+          title: "Problem Solving",
+          order_index: 2,
+          text_description: "Cognitive strategies for overcoming obstacles and finding solutions including heuristics and algorithms.",
+          is_completed: false,
+          content_generated: false,
+        },
+      ]
     }
   ];
 
@@ -109,6 +168,14 @@ const ProjectDetail = () => {
       newExpanded.add(chapterId);
     }
     setExpandedChapters(newExpanded);
+  };
+
+  const handleGenerateVideo = async () => {
+    setGeneratingVideo(true);
+    // Simulate video generation delay
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    setGeneratingVideo(false);
+    // In real implementation, this would update the subchapter's content_generated status
   };
 
   const getCurrentSubchapter = () => {
@@ -149,9 +216,9 @@ const ProjectDetail = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Overall Progress</span>
-                <span>54%</span>
+                <span>38%</span>
               </div>
-              <Progress value={54} className="h-2" />
+              <Progress value={38} className="h-2" />
             </div>
           </div>
 
@@ -246,9 +313,9 @@ const ProjectDetail = () => {
                     <BookOpen className="h-4 w-4 mr-2" />
                     Learn
                   </TabsTrigger>
-                  <TabsTrigger value="practice">
-                    <HelpCircle className="h-4 w-4 mr-2" />
-                    Practice
+                  <TabsTrigger value="teacher">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Ask Teacher
                   </TabsTrigger>
                   <TabsTrigger value="resources">
                     <FileText className="h-4 w-4 mr-2" />
@@ -285,11 +352,17 @@ const ProjectDetail = () => {
                             </Button>
                           </div>
                         </div>
+                      ) : generatingVideo ? (
+                        <div className="text-center py-8">
+                          <Loader2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground animate-spin" />
+                          <p className="text-muted-foreground mb-4">Generating video content...</p>
+                          <p className="text-sm text-muted-foreground">This may take a few minutes</p>
+                        </div>
                       ) : (
                         <div className="text-center py-8">
                           <Video className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                           <p className="text-muted-foreground mb-4">Video content not generated yet</p>
-                          <Button>Generate Video</Button>
+                          <Button onClick={handleGenerateVideo}>Generate Video</Button>
                         </div>
                       )}
                     </CardContent>
@@ -309,16 +382,16 @@ const ProjectDetail = () => {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="practice" className="space-y-6">
+                <TabsContent value="teacher" className="space-y-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Practice Questions</CardTitle>
+                      <CardTitle>AI Teacher</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-center py-8">
-                        <HelpCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-muted-foreground mb-4">Practice questions will appear here</p>
-                        <Button>Generate Questions</Button>
+                        <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground mb-4">Chat with your AI teacher about this topic</p>
+                        <Button>Start Conversation</Button>
                       </div>
                     </CardContent>
                   </Card>
