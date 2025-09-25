@@ -13,6 +13,7 @@ interface VideoPlayerProps {
   audioFilePath: string | null;
   videoMessage?: string | null;
   onRetry?: () => void;
+  onGenerateVideo?: () => void;
 }
 
 export const VideoPlayer = ({
@@ -22,18 +23,40 @@ export const VideoPlayer = ({
   videoFilePath,
   audioFilePath,
   videoMessage,
-  onRetry
+  onRetry,
+  onGenerateVideo
 }: VideoPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   
   const { toast } = useToast();
+
+  // Reset isRetrying when status changes away from failed
+  useEffect(() => {
+    if (videoStatus !== 'failed' && videoStatus !== 'FAILED' && isRetrying) {
+      setIsRetrying(false);
+    }
+  }, [videoStatus, isRetrying]);
+
+  // Handle retry with immediate feedback
+  const handleRetryClick = async () => {
+    if (onRetry) {
+      setIsRetrying(true);
+      try {
+        await onRetry();
+      } catch (error) {
+        setIsRetrying(false); // Reset on error
+      }
+    }
+  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -115,9 +138,42 @@ export const VideoPlayer = ({
     const video = videoRef.current;
     const audio = audioRef.current;
     const activeElement = video || audio;
-    
+
     if (activeElement) {
       activeElement.volume = newVolume;
+    }
+  };
+
+  const handleSeek = (seekTime: number) => {
+    const video = videoRef.current;
+    const audio = audioRef.current;
+    const activeElement = video || audio;
+
+    if (activeElement && duration > 0) {
+      activeElement.currentTime = seekTime;
+      setCurrentTime(seekTime);
+    }
+  };
+
+  const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (duration === 0) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickPosition = clickX / rect.width;
+    const seekTime = clickPosition * duration;
+
+    handleSeek(seekTime);
+  };
+
+  const handleSpeedChange = (newSpeed: number) => {
+    setPlaybackSpeed(newSpeed);
+    const video = videoRef.current;
+    const audio = audioRef.current;
+    const activeElement = video || audio;
+
+    if (activeElement) {
+      activeElement.playbackRate = newSpeed;
     }
   };
 
@@ -128,8 +184,17 @@ export const VideoPlayer = ({
   };
 
   // Video generation in progress
-  if (videoStatus === 'queued' || videoStatus === 'generating_script' || videoStatus === 'rendering_video' ||
-      videoStatus === 'QUEUED' || videoStatus === 'GENERATING_SCRIPT' || videoStatus === 'RENDERING_VIDEO') {
+  if (videoStatus === 'queued' ||
+      videoStatus === 'generating_script' ||
+      videoStatus === 'generating_images' ||
+      videoStatus === 'generating_audio' ||
+      videoStatus === 'creating_scenes' ||
+      videoStatus === 'rendering_video' ||
+      videoStatus === 'processing' ||
+      videoStatus === 'waiting' ||
+      videoStatus === 'QUEUED' ||
+      videoStatus === 'GENERATING_SCRIPT' ||
+      videoStatus === 'RENDERING_VIDEO') {
     return (
       <Card className="w-full">
         <CardContent className="p-6">
@@ -139,9 +204,13 @@ export const VideoPlayer = ({
             <p className="text-sm text-muted-foreground mb-4">
               {videoMessage || (
                 <>
-                  {(videoStatus === 'QUEUED' || videoStatus === 'queued') && "Your video is queued for generation..."}
+                  {(videoStatus === 'QUEUED' || videoStatus === 'queued' || videoStatus === 'waiting') && "Your video is queued for generation..."}
                   {(videoStatus === 'GENERATING_SCRIPT' || videoStatus === 'generating_script') && "AI is creating educational content..."}
+                  {videoStatus === 'generating_images' && "AI is generating visual content..."}
+                  {videoStatus === 'generating_audio' && "Creating voiceover with AI speech synthesis..."}
+                  {videoStatus === 'creating_scenes' && "Assembling video scenes and animations..."}
                   {(videoStatus === 'RENDERING_VIDEO' || videoStatus === 'rendering_video') && "Creating visual animations with voiceover..."}
+                  {videoStatus === 'processing' && "Processing video content..."}
                 </>
               )}
             </p>
@@ -174,9 +243,22 @@ export const VideoPlayer = ({
               There was an issue generating the video content. Please try again.
             </p>
             {onRetry && (
-              <Button onClick={onRetry} variant="outline">
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Retry Generation
+              <Button
+                onClick={handleRetryClick}
+                variant="outline"
+                disabled={isRetrying}
+              >
+                {isRetrying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Retry Generation
+                  </>
+                )}
               </Button>
             )}
           </div>
@@ -195,9 +277,15 @@ export const VideoPlayer = ({
               <Play className="h-4 w-4" />
             </div>
             <h3 className="font-medium mb-2">No Video Available</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-4">
               Video content has not been generated for this lesson yet.
             </p>
+            {onGenerateVideo && (
+              <Button onClick={onGenerateVideo} variant="outline">
+                <Play className="h-4 w-4 mr-2" />
+                Generate Video
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -283,16 +371,38 @@ export const VideoPlayer = ({
                     {duration > 0 ? `${formatTime(currentTime)} / ${formatTime(duration)}` : 'Loading...'}
                   </div>
                   {duration > 0 && (
-                    <div className="w-full bg-secondary rounded-full h-1 mt-1">
-                      <div 
-                        className="bg-primary h-1 rounded-full transition-all duration-100"
+                    <div
+                      className="w-full bg-secondary rounded-full h-2 mt-1 cursor-pointer hover:bg-secondary/80 transition-colors"
+                      onClick={handleProgressBarClick}
+                      title="Click to seek"
+                    >
+                      <div
+                        className="bg-primary h-2 rounded-full transition-all duration-100 relative"
                         style={{ width: `${(currentTime / duration) * 100}%` }}
-                      />
+                      >
+                        <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-primary rounded-full opacity-0 hover:opacity-100 transition-opacity" />
+                      </div>
                     </div>
                   )}
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                  {/* Speed Control */}
+                  <select
+                    value={playbackSpeed}
+                    onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
+                    className="text-xs bg-secondary border-none rounded px-2 py-1 cursor-pointer"
+                    title="Playback Speed"
+                  >
+                    <option value={0.5}>0.5x</option>
+                    <option value={0.75}>0.75x</option>
+                    <option value={1}>1x</option>
+                    <option value={1.25}>1.25x</option>
+                    <option value={1.5}>1.5x</option>
+                    <option value={2}>2x</option>
+                  </select>
+
+                  {/* Volume Control */}
                   <Volume2 className="h-4 w-4 text-muted-foreground" />
                   <input
                     type="range"

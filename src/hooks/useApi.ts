@@ -233,15 +233,35 @@ export const useSubchapter = (subchapterId: string) => {
 
   const generateVideo = async () => {
     try {
+      // Immediately update local state to show generation started
+      console.log('🎬 Starting video generation for subchapter:', subchapterId);
+      setSubchapter(prev => prev ? {
+        ...prev,
+        video_status: 'queued',
+        video_progress: 0,
+        video_message: 'Video generation request sent...'
+      } : null);
+
       const result = await apiClient.generateSubchapterVideo(subchapterId, {
         subchapter_id: subchapterId
       });
+
+      console.log('✅ Video generation API call successful:', result);
       toast({
         title: "Video Generation Started",
         description: `Estimated duration: ${result.estimated_duration}`,
       });
       return result;
     } catch (err) {
+      console.error('❌ Video generation failed:', err);
+      // Reset state on error
+      setSubchapter(prev => prev ? {
+        ...prev,
+        video_status: 'failed',
+        video_progress: 0,
+        video_message: 'Failed to start video generation'
+      } : null);
+
       const message = err instanceof Error ? err.message : 'Failed to generate video';
       toast({
         title: "Error",
@@ -264,22 +284,38 @@ export const useSubchapter = (subchapterId: string) => {
 
 // Video status polling hook
 export const useVideoStatusPolling = (chapterId: string, enabled = false, interval = 15000) => {
+  console.log('📡 POLLING HOOK INITIALIZED:', { chapterId, enabled, interval });
+
   const [status, setStatus] = useState<ChapterVideoStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
-    if (!chapterId || !enabled) return;
-    
+    if (!chapterId || !enabled) {
+      console.log('📡 Polling skipped - chapterId:', chapterId, 'enabled:', enabled);
+      return;
+    }
+
     try {
+      console.log('📡 Polling video status for chapter:', chapterId);
       setLoading(true);
       const data = await apiClient.getChapterVideoStatus(chapterId);
+      console.log('📊 Polling data received:', {
+        chapter_id: data.chapter_id,
+        overall_status: data.overall_status,
+        subchapters_count: data.subchapters?.length,
+        subchapters: data.subchapters?.map(sub => ({
+          id: sub.subchapter_id,
+          status: sub.video_status,
+          progress: sub.video_progress
+        }))
+      });
       setStatus(data);
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch video status';
+      console.error('❌ Video status polling error:', message);
       setError(message);
-      console.error('Video status polling error:', message);
     } finally {
       setLoading(false);
     }

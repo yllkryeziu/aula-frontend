@@ -1,6 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Play, PlayCircle, FileText, MessageSquare, BookOpen, Loader2, CheckCircle2, Clock, Wand2, ChevronRight, ChevronDown, Video, Circle, AlertTriangle, RotateCcw, ChevronUp } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github.css'; // Syntax highlighting theme
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -21,7 +25,6 @@ const SyllabusDetail = () => {
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [selectedSubchapterId, setSelectedSubchapterId] = useState<string | null>(null);
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
-  const [videoGenerationStarted, setVideoGenerationStarted] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false);
 
   const { toast } = useToast();
@@ -44,58 +47,126 @@ const SyllabusDetail = () => {
     fetchChapters();
   }, [syllabus]);
 
-  // Video status polling
+  // Subchapter hook for the selected subchapter
+  const {
+    subchapter: selectedSubchapter,
+    loading: subchapterLoading,
+    markComplete,
+    generateVideo
+  } = useSubchapter(selectedSubchapterId || '');
+
+  // Set selectedChapterId from selectedSubchapter when subchapter is loaded
+  useEffect(() => {
+    if (selectedSubchapter?.chapter_id) {
+      console.log('🔗 Setting selectedChapterId from subchapter:', selectedSubchapter.chapter_id);
+      setSelectedChapterId(selectedSubchapter.chapter_id);
+    }
+  }, [selectedSubchapter?.chapter_id]);
+
+  // Check if we should stop polling (when video is completed) - check base subchapter first
+  const shouldStopPolling = selectedSubchapter?.video_status === 'completed' && selectedSubchapter?.video_progress === 100;
+  const pollingEnabled = !!selectedChapterId && !shouldStopPolling;
+
+  console.log('🎯 POLLING SETUP:', {
+    selectedChapterId,
+    selectedSubchapterId,
+    shouldStopPolling,
+    pollingEnabled
+  });
+
   const { status: videoStatus } = useVideoStatusPolling(
     selectedChapterId || '',
-    videoGenerationStarted && !!selectedChapterId,
+    pollingEnabled,
     15000
   );
 
-  // Subchapter hook for the selected subchapter
-  const { 
-    subchapter: selectedSubchapter, 
-    loading: subchapterLoading, 
-    markComplete,
-    generateVideo 
-  } = useSubchapter(selectedSubchapterId || '');
+  // Create enhanced subchapter object that merges polling data with base subchapter data
+  const enhancedSubchapter = useMemo(() => {
+    console.log('🔄 EnhancedSubchapter calculation triggered');
 
-  // Auto-trigger video generation every 15 seconds for subchapters that need it
-  useEffect(() => {
-    if (!selectedSubchapter || !selectedSubchapterId) return;
+    if (!selectedSubchapter) {
+      console.log('❌ No selectedSubchapter available');
+      return null;
+    }
 
-    // Only trigger for subchapters that haven't started video generation
-    const needsVideoGeneration =
-      !selectedSubchapter.video_file_path &&
-      selectedSubchapter.video_status !== 'completed' &&
-      selectedSubchapter.video_status !== 'queued' &&
-      selectedSubchapter.video_status !== 'generating_script' &&
-      selectedSubchapter.video_status !== 'rendering_video';
-
-    if (!needsVideoGeneration || !generateVideo) return;
-
-    // Initial trigger
-    console.log(`Auto-triggering video generation for subchapter: ${selectedSubchapter.title}`);
-    generateVideo().catch(error => {
-      console.error('Auto video generation failed:', error);
+    console.log('📋 Base subchapter data:', {
+      id: selectedSubchapter.id,
+      title: selectedSubchapter.title,
+      video_status: selectedSubchapter.video_status,
+      video_progress: selectedSubchapter.video_progress,
+      video_message: selectedSubchapter.video_message
     });
 
-    // Set up interval for periodic checks (every 15 seconds)
-    const interval = setInterval(() => {
-      // Re-check status in case it changed
-      if (selectedSubchapter.video_status !== 'completed' &&
-          selectedSubchapter.video_status !== 'queued' &&
-          selectedSubchapter.video_status !== 'generating_script' &&
-          selectedSubchapter.video_status !== 'rendering_video' &&
-          !selectedSubchapter.video_file_path) {
-        console.log(`Auto-triggering video generation for subchapter: ${selectedSubchapter.title}`);
-        generateVideo().catch(error => {
-          console.error('Auto video generation failed:', error);
-        });
-      }
-    }, 15000); // 15 seconds
+    // If we have polling data and it contains the current subchapter, use the updated status
+    if (videoStatus?.subchapters) {
+      console.log('🔍 Searching polling data for subchapter:', selectedSubchapter.id);
+      const polledSubchapterData = videoStatus.subchapters.find(
+        sub => sub.subchapter_id === selectedSubchapter.id
+      );
 
-    return () => clearInterval(interval);
-  }, [selectedSubchapterId]); // Only trigger on subchapter change, not status change
+      if (polledSubchapterData) {
+        console.log('✅ Found polling data for subchapter:', {
+          id: polledSubchapterData.subchapter_id,
+          video_status: polledSubchapterData.video_status,
+          video_progress: polledSubchapterData.video_progress,
+          video_message: polledSubchapterData.video_message
+        });
+
+        const enhanced = {
+          ...selectedSubchapter,
+          video_status: polledSubchapterData.video_status,
+          video_progress: polledSubchapterData.video_progress,
+          video_message: polledSubchapterData.video_message,
+          video_file_path: polledSubchapterData.video_file_path
+        };
+
+        console.log('🚀 Returning enhanced subchapter data:', {
+          video_status: enhanced.video_status,
+          video_progress: enhanced.video_progress,
+          video_message: enhanced.video_message
+        });
+
+        return enhanced;
+      } else {
+        console.log('❌ No polling data found for subchapter:', selectedSubchapter.id);
+      }
+    } else {
+      console.log('❌ No videoStatus polling data available');
+    }
+
+    // Return original subchapter data if no polling updates available
+    console.log('📄 Returning original subchapter data');
+    return selectedSubchapter;
+  }, [selectedSubchapter, videoStatus]);
+
+  // Update chapters state with polling data for sidebar icons
+  useEffect(() => {
+    if (videoStatus?.subchapters && chapters.length > 0) {
+      console.log('🔄 Updating chapters state with polling data for sidebar');
+      setChapters(prevChapters =>
+        prevChapters.map(chapter => ({
+          ...chapter,
+          subchapters: chapter.subchapters?.map(subchapter => {
+            const polledData = videoStatus.subchapters.find(
+              polled => polled.subchapter_id === subchapter.id
+            );
+            if (polledData) {
+              return {
+                ...subchapter,
+                video_status: polledData.video_status,
+                video_progress: polledData.video_progress,
+                video_message: polledData.video_message,
+                video_file_path: polledData.video_file_path
+              };
+            }
+            return subchapter;
+          })
+        }))
+      );
+    }
+  }, [videoStatus, chapters.length]);
+
+  // Note: Automatic video generation removed - users now manually trigger via VideoPlayer button
 
   const handleChaptersGenerated = (newChapters: Chapter[]) => {
     setChapters(newChapters);
@@ -153,26 +224,6 @@ const SyllabusDetail = () => {
     setExpandedChapters(newExpanded);
   };
 
-  const handleOpenChapter = async (chapterId: string) => {
-    try {
-      const result = await apiClient.openChapter(chapterId, true); // auto-generate videos
-      setVideoGenerationStarted(true);
-      setSelectedChapterId(chapterId);
-      
-      toast({
-        title: "Chapter Opened",
-        description: result.video_generation_started 
-          ? `Video generation started for ${result.subchapters_found} lessons. Estimated time: ${result.estimated_completion}`
-          : "Chapter opened successfully",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to open chapter",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSubchapterComplete = async (checked: boolean) => {
     if (!selectedSubchapterId) return;
@@ -350,16 +401,6 @@ const SyllabusDetail = () => {
                             </div>
                           </div>
                         </Button>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenChapter(chapter.id)}
-                          className="shrink-0"
-                        >
-                          <Play className="h-3 w-3 mr-1" />
-                          Start
-                        </Button>
                       </div>
 
                       {/* Subchapters */}
@@ -387,18 +428,28 @@ const SyllabusDetail = () => {
                                 
                                 {/* Video status indicator */}
                                 <div className="shrink-0">
-                                  {subchapter.video_status === 'completed' && (
+                                  {subchapter.video_status === 'completed' && subchapter.video_file_path && (
                                     <Video className="h-3 w-3 text-green-500" />
                                   )}
-                                  {subchapter.video_status === 'queued' && (
+                                  {(subchapter.video_status === 'queued' ||
+                                    subchapter.video_status === 'waiting') && (
                                     <Clock className="h-3 w-3 text-orange-500" />
                                   )}
                                   {(subchapter.video_status === 'generating_script' ||
-                                    subchapter.video_status === 'rendering_video') && (
+                                    subchapter.video_status === 'generating_images' ||
+                                    subchapter.video_status === 'generating_audio' ||
+                                    subchapter.video_status === 'creating_scenes' ||
+                                    subchapter.video_status === 'rendering_video' ||
+                                    subchapter.video_status === 'processing') && (
                                     <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
                                   )}
                                   {subchapter.video_status === 'failed' && (
                                     <AlertTriangle className="h-3 w-3 text-red-500" />
+                                  )}
+                                  {(!subchapter.video_status ||
+                                    subchapter.video_status === 'not_started' ||
+                                    subchapter.video_status === 'pending') && (
+                                    <Circle className="h-3 w-3 text-muted-foreground" />
                                   )}
                                 </div>
                               </div>
@@ -423,7 +474,7 @@ const SyllabusDetail = () => {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
-          {selectedSubchapter ? (
+          {enhancedSubchapter ? (
             <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
               {/* Subchapter Header */}
               <div className="mb-8">
@@ -431,20 +482,20 @@ const SyllabusDetail = () => {
                   <Badge variant="outline">
                     Chapter {currentChapter?.order_index}
                   </Badge>
-                  {selectedSubchapter.is_completed && (
+                  {enhancedSubchapter.is_completed && (
                     <Badge variant="default" className="bg-green-100 text-green-800">
                       <CheckCircle2 className="h-3 w-3 mr-1" />
                       Completed
                     </Badge>
                   )}
                 </div>
-                <h1 className="text-3xl font-bold mb-2">{selectedSubchapter.title}</h1>
+                <h1 className="text-3xl font-bold mb-2">{enhancedSubchapter.title}</h1>
 
                 {/* Completion Toggle */}
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="completed"
-                    checked={selectedSubchapter.is_completed}
+                    checked={enhancedSubchapter.is_completed}
                     onCheckedChange={handleSubchapterComplete}
                   />
                   <label
@@ -476,13 +527,14 @@ const SyllabusDetail = () => {
                 <TabsContent value="learn" className="space-y-6">
                   {/* Video Player */}
                   <VideoPlayer
-                    subchapterId={selectedSubchapter.id}
-                    videoStatus={selectedSubchapter.video_status}
-                    videoProgress={selectedSubchapter.video_progress}
-                    videoFilePath={selectedSubchapter.video_file_path}
-                    audioFilePath={selectedSubchapter.audio_file_path}
-                    videoMessage={selectedSubchapter.video_message}
+                    subchapterId={enhancedSubchapter.id}
+                    videoStatus={enhancedSubchapter.video_status}
+                    videoProgress={enhancedSubchapter.video_progress}
+                    videoFilePath={enhancedSubchapter.video_file_path}
+                    audioFilePath={enhancedSubchapter.audio_file_path}
+                    videoMessage={enhancedSubchapter.video_message}
                     onRetry={handleRegenerateVideo}
+                    onGenerateVideo={generateVideo}
                   />
 
                   {/* Text Content */}
@@ -493,11 +545,19 @@ const SyllabusDetail = () => {
                     <CardContent>
                       <div className="prose prose-sm max-w-none">
                         <div className="mb-4">
-                          <p className={`transition-all duration-300 ${!showFullContent ? 'line-clamp-3' : ''}`}>
-                            {selectedSubchapter.text_description}
-                          </p>
+                          <div className={`transition-all duration-300 ${!showFullContent ? 'line-clamp-3' : ''}`}>
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              rehypePlugins={[rehypeHighlight]}
+                            >
+                              {showFullContent
+                                ? enhancedSubchapter.text_description
+                                : enhancedSubchapter.text_description?.substring(0, 200) + (enhancedSubchapter.text_description?.length > 200 ? '...' : '')
+                              }
+                            </ReactMarkdown>
+                          </div>
 
-                          {selectedSubchapter.text_description && selectedSubchapter.text_description.length > 200 && (
+                          {enhancedSubchapter.text_description && enhancedSubchapter.text_description.length > 200 && (
                             <button
                               onClick={() => setShowFullContent(!showFullContent)}
                               className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
@@ -517,12 +577,16 @@ const SyllabusDetail = () => {
                           )}
                         </div>
 
-                        {selectedSubchapter.rag_content && (
+                        {enhancedSubchapter.rag_content && (
                           <div className="mt-6 p-4 bg-muted rounded-lg">
                             <h4 className="font-medium mb-2">Related Course Materials:</h4>
-                            <div className="text-sm whitespace-pre-wrap">
-                              {selectedSubchapter.rag_content.substring(0, 500)}
-                              {selectedSubchapter.rag_content.length > 500 && '...'}
+                            <div className="text-sm prose prose-sm">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeHighlight]}
+                              >
+                                {enhancedSubchapter.rag_content.substring(0, 500) + (enhancedSubchapter.rag_content.length > 500 ? '...' : '')}
+                              </ReactMarkdown>
                             </div>
                           </div>
                         )}
@@ -562,12 +626,17 @@ const SyllabusDetail = () => {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {selectedSubchapter.rag_content ? (
+                      {enhancedSubchapter.rag_content ? (
                         <div className="space-y-4">
                           <div className="p-4 bg-muted rounded-lg">
-                            <pre className="text-sm whitespace-pre-wrap font-sans">
-                              {selectedSubchapter.rag_content}
-                            </pre>
+                            <div className="text-sm prose prose-sm max-w-none">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeHighlight]}
+                              >
+                                {enhancedSubchapter.rag_content}
+                              </ReactMarkdown>
+                            </div>
                           </div>
                         </div>
                       ) : (

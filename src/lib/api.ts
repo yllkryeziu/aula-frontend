@@ -37,7 +37,7 @@ export interface Subchapter {
   subtitles: string | null;
   video_file_path: string | null;
   audio_file_path: string | null;
-  video_status: 'queued' | 'generating_script' | 'rendering_video' | 'completed' | 'failed';
+  video_status: 'queued' | 'generating_script' | 'generating_images' | 'generating_audio' | 'creating_scenes' | 'rendering_video' | 'completed' | 'failed' | 'waiting' | 'processing' | 'not_started' | 'pending' | string;
   video_progress: number;
   video_message: string | null;
   is_completed: boolean;
@@ -47,7 +47,7 @@ export interface Subchapter {
 export interface DetailedVideoStatus {
   subchapter_id: string;
   subchapter_title: string;
-  video_status: 'queued' | 'generating_script' | 'rendering_video' | 'completed' | 'failed';
+  video_status: 'queued' | 'generating_script' | 'generating_images' | 'generating_audio' | 'creating_scenes' | 'rendering_video' | 'completed' | 'failed' | 'waiting' | 'processing' | 'not_started' | 'pending' | string;
   video_progress: number;
   video_message: string | null;
   video_file_path: string | null;
@@ -262,7 +262,9 @@ class ApiClient {
   }
 
   async getChapterVideoStatus(chapterId: string): Promise<ChapterVideoStatus> {
-    return this.request<ChapterVideoStatus>(`/api/v1/video/chapters/${chapterId}/video-status`);
+    const url = `/api/v1/video/chapters/${chapterId}/video-status`;
+    console.log('🌐 API CALL:', { chapterId, url, fullUrl: `${this.baseUrl}${url}` });
+    return this.request<ChapterVideoStatus>(url);
   }
 
   async deleteSubchapterVideo(subchapterId: string): Promise<void> {
