@@ -189,12 +189,7 @@ export const VideoPlayer = ({
       videoStatus === 'generating_images' ||
       videoStatus === 'generating_audio' ||
       videoStatus === 'creating_scenes' ||
-      videoStatus === 'rendering_video' ||
-      videoStatus === 'processing' ||
-      videoStatus === 'waiting' ||
-      videoStatus === 'QUEUED' ||
-      videoStatus === 'GENERATING_SCRIPT' ||
-      videoStatus === 'RENDERING_VIDEO') {
+      videoStatus === 'rendering_video') {
     return (
       <Card className="w-full">
         <CardContent className="p-6">
@@ -204,13 +199,12 @@ export const VideoPlayer = ({
             <p className="text-sm text-muted-foreground mb-4">
               {videoMessage || (
                 <>
-                  {(videoStatus === 'QUEUED' || videoStatus === 'queued' || videoStatus === 'waiting') && "Your video is queued for generation..."}
-                  {(videoStatus === 'GENERATING_SCRIPT' || videoStatus === 'generating_script') && "AI is creating educational content..."}
+                  {videoStatus === 'queued' && "Your video is queued for generation..."}
+                  {videoStatus === 'generating_script' && "AI is creating educational content..."}
                   {videoStatus === 'generating_images' && "AI is generating visual content..."}
                   {videoStatus === 'generating_audio' && "Creating voiceover with AI speech synthesis..."}
                   {videoStatus === 'creating_scenes' && "Assembling video scenes and animations..."}
-                  {(videoStatus === 'RENDERING_VIDEO' || videoStatus === 'rendering_video') && "Creating visual animations with voiceover..."}
-                  {videoStatus === 'processing' && "Processing video content..."}
+                  {videoStatus === 'rendering_video' && "Creating visual animations with voiceover..."}
                 </>
               )}
             </p>
@@ -232,7 +226,7 @@ export const VideoPlayer = ({
   }
 
   // Video generation failed
-  if (videoStatus === 'FAILED' || videoStatus === 'failed') {
+  if (videoStatus === 'failed') {
     return (
       <Card className="w-full border-destructive">
         <CardContent className="p-6">
@@ -268,7 +262,7 @@ export const VideoPlayer = ({
   }
 
   // Video not generated yet
-  if ((videoStatus !== 'COMPLETED' && videoStatus !== 'completed') || (!videoFilePath && !audioFilePath)) {
+  if (videoStatus === 'not_started' || (!videoFilePath && !audioFilePath)) {
     return (
       <Card className="w-full">
         <CardContent className="p-6">

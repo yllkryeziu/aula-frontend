@@ -282,6 +282,50 @@ export const useSubchapter = (subchapterId: string) => {
   };
 };
 
+// Syllabus status polling hook
+export const useSyllabusStatusPolling = (syllabusId: string, enabled = false, interval = 10000) => {
+  const [status, setStatus] = useState<Syllabus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStatus = useCallback(async () => {
+    if (!syllabusId || !enabled) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await apiClient.getSyllabus(syllabusId);
+      setStatus(data);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch syllabus status';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [syllabusId, enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setStatus(null);
+      return;
+    }
+
+    fetchStatus();
+    const pollInterval = setInterval(fetchStatus, interval);
+
+    return () => clearInterval(pollInterval);
+  }, [fetchStatus, enabled, interval]);
+
+  return {
+    status,
+    loading,
+    error,
+    refetch: fetchStatus,
+  };
+};
+
 // Video status polling hook
 export const useVideoStatusPolling = (chapterId: string, enabled = false, interval = 15000) => {
   console.log('📡 POLLING HOOK INITIALIZED:', { chapterId, enabled, interval });

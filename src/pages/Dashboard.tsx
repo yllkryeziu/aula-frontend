@@ -16,20 +16,23 @@ const Dashboard = () => {
     navigate(`/syllabus/${syllabusId}`);
   };
 
-  const handleSyllabusClick = (syllabusId: string) => {
+  const handleSyllabusClick = (syllabusId: string, status: string) => {
+    if (status === 'error') return;
     navigate(`/syllabus/${syllabusId}`);
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'ready':
         return <Badge variant="secondary" className="bg-green-100 text-green-800">Ready</Badge>;
+      case 'generating_chapters':
+        return <Badge variant="secondary" className="bg-purple-100 text-purple-800">Generating Chapters</Badge>;
       case 'processing':
         return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Processing</Badge>;
       case 'created':
         return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Created</Badge>;
-      case 'failed':
-        return <Badge variant="destructive">Failed</Badge>;
+      case 'error':
+        return <Badge variant="destructive">Error</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -92,10 +95,10 @@ const Dashboard = () => {
 
           {/* Existing Syllabi */}
           {!loading && !error && syllabi.map((syllabus) => (
-            <Card 
+            <Card
               key={syllabus.id}
-              className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => handleSyllabusClick(syllabus.id)}
+              className={`transition-shadow ${syllabus.processing_status === 'error' ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-md cursor-pointer'}`}
+              onClick={() => handleSyllabusClick(syllabus.id, syllabus.processing_status)}
             >
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -111,6 +114,12 @@ const Dashboard = () => {
                   <div className="text-right text-sm text-muted-foreground ml-4">
                     <div>{syllabus.document_count} materials</div>
                     <div>{syllabus.chapter_count} chapters</div>
+                    {syllabus.subchapter_count > 0 && (
+                      <div>{syllabus.subchapter_count} subchapters</div>
+                    )}
+                    {syllabus.video_completion_rate > 0 && (
+                      <div>{Math.round(syllabus.video_completion_rate)}% video progress</div>
+                    )}
                     <div>{new Date(syllabus.created_at).toLocaleDateString()}</div>
                   </div>
                 </div>

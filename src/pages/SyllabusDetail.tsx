@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Play, PlayCircle, FileText, MessageSquare, BookOpen, Loader2, CheckCircle2, Clock, Wand2, ChevronRight, ChevronDown, Video, Circle, AlertTriangle, RotateCcw, ChevronUp } from "lucide-react";
+import { ArrowLeft, FileText, MessageSquare, BookOpen, Loader2, CheckCircle2, Clock, ChevronRight, ChevronDown, Video, Circle, AlertTriangle, ChevronUp } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useSyllabus, useVideoStatusPolling, useSubchapter } from "@/hooks/useApi";
+import { useSyllabus, useSyllabusStatusPolling, useVideoStatusPolling, useSubchapter } from "@/hooks/useApi";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { ChapterStructureGenerator } from "@/components/ChapterStructureGenerator";
 import { Chapter, Subchapter, apiClient } from "@/lib/api";
@@ -30,13 +30,20 @@ const SyllabusDetail = () => {
   const { toast } = useToast();
   const { syllabus, loading: syllabusLoading, error: syllabusError } = useSyllabus(syllabusId!);
 
+  // Poll syllabus status for processing state changes
+  const shouldPollSyllabus = syllabus?.processing_status === 'processing' || syllabus?.processing_status === 'generating_chapters';
+  const { status: syllabusStatus } = useSyllabusStatusPolling(syllabusId!, shouldPollSyllabus, 10000);
+
+  // Use polling data if available, otherwise use base syllabus data
+  const currentSyllabus = syllabusStatus || syllabus;
+
   // Fetch chapters when syllabus is loaded
   useEffect(() => {
     const fetchChapters = async () => {
-      if (!syllabus) return;
+      if (!currentSyllabus) return;
 
       try {
-        const syllabusChapters = await apiClient.getSyllabusChapters(syllabus.id);
+        const syllabusChapters = await apiClient.getSyllabusChapters(currentSyllabus.id);
         console.log('Fetched chapters:', syllabusChapters);
         setChapters(syllabusChapters);
       } catch (error) {
@@ -45,12 +52,11 @@ const SyllabusDetail = () => {
     };
 
     fetchChapters();
-  }, [syllabus]);
+  }, [currentSyllabus]);
 
   // Subchapter hook for the selected subchapter
   const {
     subchapter: selectedSubchapter,
-    loading: subchapterLoading,
     markComplete,
     generateVideo
   } = useSubchapter(selectedSubchapterId || '');
@@ -153,7 +159,7 @@ const SyllabusDetail = () => {
             if (polledData) {
               return {
                 ...subchapter,
-                video_status: polledData.video_status,
+                video_status: polledData.video_status as Subchapter['video_status'],
                 video_progress: polledData.video_progress,
                 video_message: polledData.video_message,
                 video_file_path: polledData.video_file_path
@@ -275,7 +281,7 @@ const SyllabusDetail = () => {
     );
   }
 
-  if (syllabusError || !syllabus) {
+  if (syllabusError || !currentSyllabus) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -310,22 +316,23 @@ const SyllabusDetail = () => {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div className="flex-1">
-                <h1 className="text-lg font-semibold">{syllabus.name}</h1>
+                <h1 className="text-lg font-semibold">{currentSyllabus.name}</h1>
                 <p className="text-sm text-muted-foreground line-clamp-2">
-                  {syllabus.description}
+                  {currentSyllabus.description}
                 </p>
               </div>
             </div>
             
             {/* Syllabus Status */}
             <div className="flex items-center gap-2 mb-3">
-              <Badge variant={syllabus.processing_status === 'ready' ? 'default' : 'secondary'}>
-                {syllabus.processing_status === 'ready' ? 'Ready' :
-                 syllabus.processing_status === 'processing' ? 'Processing' :
-                 syllabus.processing_status}
+              <Badge variant={currentSyllabus.processing_status === 'ready' ? 'default' : 'secondary'}>
+                {currentSyllabus.processing_status === 'ready' ? 'Ready' :
+                 currentSyllabus.processing_status === 'processing' ? 'Processing' :
+                 currentSyllabus.processing_status === 'generating_chapters' ? 'Generating Chapters' :
+                 currentSyllabus.processing_status}
               </Badge>
               <span className="text-xs text-muted-foreground">
-                {syllabus.document_count} documents
+                {currentSyllabus.document_count} documents
               </span>
             </div>
 
@@ -344,32 +351,32 @@ const SyllabusDetail = () => {
           {/* Content */}
           <ScrollArea className="flex-1 h-[calc(100vh-200px)]">
             <div className="p-4">
-              {/* Syllabus processing state - only show if processing and no chapters yet */}
-              {syllabus.processing_status === 'processing' && chapters.length === 0 && (
+              {/* Syllabus processing state - show during processing or generating_chapters */}
+              {(currentSyllabus.processing_status === 'processing' || currentSyllabus.processing_status === 'generating_chapters') && (
                 <Card>
                   <CardContent className="p-4 text-center">
                     <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                     <h3 className="font-medium mb-2">Syllabus Processing</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Your syllabus materials are being processed. This may take a few minutes.
+                      {currentSyllabus.processing_status === 'generating_chapters' ? 'AI is generating chapter structure from your materials...' : 'Your syllabus materials are being processed. This may take a few minutes.'}
                     </p>
                     <Badge variant="secondary" className="text-xs">
-                      Status: {syllabus.processing_status}
+                      Status: {currentSyllabus.processing_status === 'generating_chapters' ? 'Generating Chapters' : currentSyllabus.processing_status}
                     </Badge>
                   </CardContent>
                 </Card>
               )}
 
-              {/* No chapters generated yet - show generator if documents exist but no chapters */}
-              {chapters.length === 0 && syllabus.document_count > 0 && (
-                <ChapterStructureGenerator 
-                  syllabusId={syllabus.id}
+              {/* No chapters generated yet - show generator if documents exist but no chapters and status is ready */}
+              {chapters.length === 0 && currentSyllabus.document_count > 0 && currentSyllabus.processing_status === 'ready' && (
+                <ChapterStructureGenerator
+                  syllabusId={currentSyllabus.id}
                   onChaptersGenerated={handleChaptersGenerated}
                 />
               )}
 
-              {/* Chapters List */}
-              {chapters.length > 0 && (
+              {/* Chapters List - only show when status is ready */}
+              {chapters.length > 0 && currentSyllabus.processing_status === 'ready' && (
                 <div className="space-y-2">
                   {chapters.map((chapter) => (
                     <div key={chapter.id} className="space-y-1">
@@ -431,24 +438,21 @@ const SyllabusDetail = () => {
                                   {subchapter.video_status === 'completed' && subchapter.video_file_path && (
                                     <Video className="h-3 w-3 text-green-500" />
                                   )}
-                                  {(subchapter.video_status === 'queued' ||
-                                    subchapter.video_status === 'waiting') && (
+                                  {subchapter.video_status === 'queued' && (
                                     <Clock className="h-3 w-3 text-orange-500" />
                                   )}
                                   {(subchapter.video_status === 'generating_script' ||
                                     subchapter.video_status === 'generating_images' ||
                                     subchapter.video_status === 'generating_audio' ||
                                     subchapter.video_status === 'creating_scenes' ||
-                                    subchapter.video_status === 'rendering_video' ||
-                                    subchapter.video_status === 'processing') && (
+                                    subchapter.video_status === 'rendering_video') && (
                                     <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
                                   )}
                                   {subchapter.video_status === 'failed' && (
                                     <AlertTriangle className="h-3 w-3 text-red-500" />
                                   )}
                                   {(!subchapter.video_status ||
-                                    subchapter.video_status === 'not_started' ||
-                                    subchapter.video_status === 'pending') && (
+                                    subchapter.video_status === 'not_started') && (
                                     <Circle className="h-3 w-3 text-muted-foreground" />
                                   )}
                                 </div>

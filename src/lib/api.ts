@@ -7,9 +7,11 @@ export interface Syllabus {
   id: string;
   name: string;
   description: string | null;
-  processing_status: 'created' | 'processing' | 'ready' | 'error';
+  processing_status: 'created' | 'processing' | 'generating_chapters' | 'ready' | 'error';
   document_count: number;
   chapter_count: number;
+  subchapter_count: number;
+  video_completion_rate: number;
   chunk_count: number;
   toc_item_count: number;
   last_processed_at: string | null;
@@ -37,7 +39,7 @@ export interface Subchapter {
   subtitles: string | null;
   video_file_path: string | null;
   audio_file_path: string | null;
-  video_status: 'queued' | 'generating_script' | 'generating_images' | 'generating_audio' | 'creating_scenes' | 'rendering_video' | 'completed' | 'failed' | 'waiting' | 'processing' | 'not_started' | 'pending' | string;
+  video_status: 'not_started' | 'queued' | 'generating_script' | 'generating_images' | 'generating_audio' | 'creating_scenes' | 'rendering_video' | 'completed' | 'failed';
   video_progress: number;
   video_message: string | null;
   is_completed: boolean;
@@ -47,7 +49,7 @@ export interface Subchapter {
 export interface DetailedVideoStatus {
   subchapter_id: string;
   subchapter_title: string;
-  video_status: 'queued' | 'generating_script' | 'generating_images' | 'generating_audio' | 'creating_scenes' | 'rendering_video' | 'completed' | 'failed' | 'waiting' | 'processing' | 'not_started' | 'pending' | string;
+  video_status: 'not_started' | 'queued' | 'generating_script' | 'generating_images' | 'generating_audio' | 'creating_scenes' | 'rendering_video' | 'completed' | 'failed';
   video_progress: number;
   video_message: string | null;
   video_file_path: string | null;
