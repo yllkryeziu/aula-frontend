@@ -1,45 +1,38 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateProjectModal } from "@/components/CreateProjectModal";
 import { useNavigate } from "react-router-dom";
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  materialCount: number;
-  createdAt: Date;
-}
+import { useCourses } from "@/hooks/useApi";
+import { Badge } from "@/components/ui/badge";
 
 const Dashboard = () => {
-  const [projects, setProjects] = useState<Project[]>([
-    {
-      id: "1",
-      name: "Psychology 101",
-      description: "A project for studying your course materials, where Claude helps create personalized learning resources, visualize key concepts, and build comprehensive study strategies tailored to your learning needs.",
-      materialCount: 3,
-      createdAt: new Date("2024-01-15")
-    }
-  ]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const navigate = useNavigate();
+  const { courses, loading, error, refetch } = useCourses();
 
-  const handleCreateProject = (name: string) => {
-    const newProject: Project = {
-      id: Date.now().toString(),
-      name,
-      description: "A project for studying your course materials, where Claude helps create personalized learning resources, visualize key concepts, and build comprehensive study strategies tailored to your learning needs.",
-      materialCount: 0,
-      createdAt: new Date()
-    };
-    setProjects(prev => [newProject, ...prev]);
-    navigate(`/project/${newProject.id}`);
+  const handleCreateProject = (courseId: string, name: string) => {
+    navigate(`/project/${courseId}`);
   };
 
-  const handleProjectClick = (projectId: string) => {
-    navigate(`/project/${projectId}`);
+  const handleProjectClick = (courseId: string) => {
+    navigate(`/project/${courseId}`);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge variant="secondary" className="bg-green-100 text-green-800">Ready</Badge>;
+      case 'processing':
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Processing</Badge>;
+      case 'created':
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Created</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">Failed</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
   };
 
   return (
@@ -69,29 +62,79 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
+          {/* Loading State */}
+          {loading && (
+            <Card>
+              <CardContent className="flex items-center justify-center p-8">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Loading courses...
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <Card className="border-destructive">
+              <CardContent className="flex items-center justify-center p-8">
+                <div className="text-center">
+                  <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+                  <p className="text-destructive font-medium">Failed to load courses</p>
+                  <p className="text-sm text-muted-foreground mb-4">{error}</p>
+                  <Button onClick={refetch} size="sm">
+                    Try Again
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Existing Projects */}
-          {projects.map((project) => (
+          {!loading && !error && courses.map((course) => (
             <Card 
-              key={project.id}
+              key={course.id}
               className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => handleProjectClick(project.id)}
+              onClick={() => handleProjectClick(course.id)}
             >
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{project.name}</CardTitle>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CardTitle className="text-lg">{course.name}</CardTitle>
+                      {getStatusBadge(course.processing_status)}
+                    </div>
                     <CardDescription className="mt-2">
-                      {project.description}
+                      {course.description}
                     </CardDescription>
                   </div>
-                  <div className="text-right text-sm text-muted-foreground">
-                    <div>{project.materialCount} materials</div>
-                    <div>{project.createdAt.toLocaleDateString()}</div>
+                  <div className="text-right text-sm text-muted-foreground ml-4">
+                    <div>{course.document_count} materials</div>
+                    <div>{course.chunk_count} sections</div>
+                    <div>{new Date(course.created_at).toLocaleDateString()}</div>
                   </div>
                 </div>
               </CardHeader>
             </Card>
           ))}
+
+          {/* Empty State */}
+          {!loading && !error && courses.length === 0 && (
+            <Card>
+              <CardContent className="flex items-center justify-center p-12">
+                <div className="text-center">
+                  <h3 className="font-medium mb-2">No courses yet</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Create your first study project to get started with AI-powered learning
+                  </p>
+                  <Button onClick={() => setIsCreateModalOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Course
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 

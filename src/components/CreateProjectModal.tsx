@@ -1,33 +1,109 @@
 import { useState } from "react";
-import { X, Upload, Book } from "lucide-react";
+import { X, Upload, Book, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { useDocuments } from "@/hooks/useApi";
+import { useToast } from "@/hooks/use-toast";
 
 interface CreateProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateProject: (name: string) => void;
+  onCreateProject: (courseId: string, name: string) => void;
 }
 
 export const CreateProjectModal = ({ isOpen, onClose, onCreateProject }: CreateProjectModalProps) => {
   const [step, setStep] = useState(1);
   const [projectName, setProjectName] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [courseId, setCourseId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [creatingCourse, setCreatingCourse] = useState(false);
+  
+  const { toast } = useToast();
+  const { uploadDocument } = useDocuments(courseId || '');
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 1 && projectName.trim()) {
-      setStep(2);
+      try {
+        setCreatingCourse(true);
+        // Create course first
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/syllabi/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: projectName,
+            description: `A project for studying ${projectName} course materials, where Claude helps create personalized learning resources, visualize key concepts, and build comprehensive study strategies tailored to your learning needs.`,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create course');
+        }
+
+        const course = await response.json();
+        setCourseId(course.id);
+        setStep(2);
+        
+        toast({
+          title: "Course Created",
+          description: "Now add reference materials to generate your personalized curriculum.",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to create course. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setCreatingCourse(false);
+      }
     }
   };
 
-  const handleCreate = () => {
-    onCreateProject(projectName);
+  const handleCreate = async () => {
+    if (!courseId) return;
+
+    if (files.length > 0) {
+      try {
+        setUploading(true);
+        setUploadProgress(0);
+        
+        // Upload files one by one
+        for (let i = 0; i < files.length; i++) {
+          await uploadDocument(files[i]);
+          setUploadProgress(((i + 1) / files.length) * 100);
+        }
+
+        toast({
+          title: "Upload Complete",
+          description: "All materials uploaded. You can now generate your course structure!",
+        });
+      } catch (error) {
+        toast({
+          title: "Upload Error",
+          description: "Some files failed to upload. You can try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setUploading(false);
+      }
+    }
+
+    // Navigate to the course
+    onCreateProject(courseId, projectName);
+    
     // Reset modal state
     setStep(1);
     setProjectName("");
     setFiles([]);
+    setCourseId(null);
+    setUploadProgress(0);
     onClose();
   };
 
@@ -90,10 +166,17 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreateProject }: CreateP
                 </Button>
                 <Button 
                   onClick={handleNext}
-                  disabled={!projectName.trim()}
+                  disabled={!projectName.trim() || creatingCourse}
                   className="bg-primary hover:bg-primary/90"
                 >
-                  Create project
+                  {creatingCourse ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create project'
+                  )}
                 </Button>
               </div>
             </div>
@@ -131,22 +214,51 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreateProject }: CreateP
                 {/* Selected Files */}
                 {files.length > 0 && (
                   <div className="mt-4 space-y-2">
+                    <h4 className="text-sm font-medium">Selected files ({files.length})</h4>
                     {files.map((file, index) => (
                       <div key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Book className="h-4 w-4" />
-                        {file.name}
+                        <span className="flex-1">{file.name}</span>
+                        <span className="text-xs">{(file.size / 1024 / 1024).toFixed(2)}MB</span>
                       </div>
                     ))}
                   </div>
                 )}
+
+                {/* Upload Progress */}
+                {uploading && (
+                  <div className="mt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Uploading files...</span>
+                      <span className="text-sm text-muted-foreground">{Math.round(uploadProgress)}%</span>
+                    </div>
+                    <Progress value={uploadProgress} className="w-full" />
+                  </div>
+                )}
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-end gap-3 pt-4">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setStep(1)}
+                  disabled={uploading}
+                >
+                  Back
+                </Button>
                 <Button 
                   onClick={handleCreate}
+                  disabled={uploading}
                   className="bg-primary hover:bg-primary/90"
                 >
-                  Continue
+                  {uploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    'Continue'
+                  )}
                 </Button>
               </div>
             </div>
