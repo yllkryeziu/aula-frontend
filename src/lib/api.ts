@@ -3,45 +3,62 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // API Types
-export interface Course {
+export interface Syllabus {
   id: string;
   name: string;
-  description: string;
-  processing_status: 'created' | 'processing' | 'completed' | 'failed';
+  description: string | null;
+  processing_status: 'created' | 'processing' | 'ready' | 'error';
   document_count: number;
+  chapter_count: number;
   chunk_count: number;
+  toc_item_count: number;
+  last_processed_at: string | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface Chapter {
   id: string;
+  syllabus_id: string;
   title: string;
-  description: string;
   order_index: number;
   is_generated: boolean;
-  subchapter_count: number;
-  video_completion_rate: number;
   created_at: string;
+  completion_percentage: number;
   subchapters?: Subchapter[];
 }
 
 export interface Subchapter {
   id: string;
+  chapter_id: string;
   title: string;
-  text_description: string;
-  video_status: 'QUEUED' | 'GENERATING_SCRIPT' | 'RENDERING_VIDEO' | 'COMPLETED' | 'FAILED';
-  video_progress: number;
+  order_index: number;
+  text_description: string | null;
+  rag_content: string | null;
+  subtitles: string | null;
   video_file_path: string | null;
   audio_file_path: string | null;
-  subtitles: string | null;
-  rag_content: string | null;
-  completion_status: boolean;
-  order_index: number;
-  chapter_id: string;
+  video_status: 'queued' | 'generating_script' | 'rendering_video' | 'completed' | 'failed';
+  video_progress: number;
+  video_message: string | null;
+  is_completed: boolean;
   created_at: string;
-  video_message?: string;
-  estimated_completion?: string;
+}
+
+export interface DetailedVideoStatus {
+  subchapter_id: string;
+  subchapter_title: string;
+  video_status: 'queued' | 'generating_script' | 'rendering_video' | 'completed' | 'failed';
+  video_progress: number;
+  video_message: string | null;
+  video_file_path: string | null;
+  current_stage: string;
+  stage_progress: number;
+  stages_completed: string[];
+  stages_remaining: string[];
+  error_details: string | null;
+  started_at: string | null;
+  estimated_completion: string | null;
+  total_duration_estimate: number | null;
 }
 
 export interface Document {
@@ -59,6 +76,7 @@ export interface Document {
 }
 
 export interface VideoGenerationRequest {
+  subchapter_id?: string;
   model?: string;
   voice?: string;
   force_regenerate?: boolean;
@@ -132,39 +150,43 @@ class ApiClient {
     return response.json();
   }
 
-  // Course/Syllabus Management
-  async createCourse(name: string, description: string): Promise<Course> {
-    return this.request<Course>('/api/v1/syllabi/', {
+  // Syllabus Management
+  async createSyllabus(name: string, description: string): Promise<Syllabus> {
+    return this.request<Syllabus>('/api/v1/syllabi/', {
       method: 'POST',
       body: JSON.stringify({ name, description }),
     });
   }
 
-  async getCourses(skip = 0, limit = 20): Promise<Course[]> {
-    return this.request<Course[]>(`/api/v1/syllabi/?skip=${skip}&limit=${limit}`);
+  async getSyllabi(skip = 0, limit = 20): Promise<Syllabus[]> {
+    return this.request<Syllabus[]>(`/api/v1/syllabi/?skip=${skip}&limit=${limit}`);
   }
 
-  async getCourse(courseId: string): Promise<Course> {
-    return this.request<Course>(`/api/v1/syllabi/${courseId}`);
+  async getSyllabus(syllabusId: string): Promise<Syllabus> {
+    return this.request<Syllabus>(`/api/v1/syllabi/${syllabusId}`);
   }
 
-  async deleteCourse(courseId: string): Promise<void> {
-    return this.request<void>(`/api/v1/syllabi/${courseId}`, {
+  async deleteSyllabus(syllabusId: string): Promise<void> {
+    return this.request<void>(`/api/v1/syllabi/${syllabusId}`, {
       method: 'DELETE',
     });
   }
 
   async generateChapters(
-    courseId: string,
+    syllabusId: string,
     options: { max_items?: number; focus_area?: string; depth_level?: number } = {}
   ): Promise<Chapter[]> {
-    return this.request<Chapter[]>(`/api/v1/syllabi/${courseId}/generate-chapters`, {
+    return this.request<Chapter[]>(`/api/v1/syllabi/${syllabusId}/generate-chapters`, {
       method: 'POST',
       body: JSON.stringify(options),
     });
   }
 
   // Chapter Management
+  async getSyllabusChapters(syllabusId: string): Promise<Chapter[]> {
+    return this.request<Chapter[]>(`/api/v1/syllabi/${syllabusId}/chapters`);
+  }
+
   async getChapter(chapterId: string): Promise<Chapter> {
     return this.request<Chapter>(`/api/v1/chapters/${chapterId}`);
   }
@@ -179,11 +201,11 @@ class ApiClient {
   }
 
   // Document Management
-  async uploadDocument(courseId: string, file: File): Promise<Document> {
+  async uploadDocument(syllabusId: string, file: File): Promise<Document> {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${this.baseUrl}/api/v1/projects/${courseId}/documents`, {
+    const response = await fetch(`${this.baseUrl}/api/v1/syllabi/${syllabusId}/documents`, {
       method: 'POST',
       body: formData,
     });
@@ -196,8 +218,8 @@ class ApiClient {
     return response.json();
   }
 
-  async getCourseDocuments(courseId: string, skip = 0, limit = 10): Promise<Document[]> {
-    return this.request<Document[]>(`/api/v1/projects/${courseId}/documents?skip=${skip}&limit=${limit}`);
+  async getSyllabusDocuments(syllabusId: string, skip = 0, limit = 10): Promise<Document[]> {
+    return this.request<Document[]>(`/api/v1/syllabi/${syllabusId}/documents?skip=${skip}&limit=${limit}`);
   }
 
   async getDocument(documentId: string): Promise<Document> {
@@ -235,6 +257,10 @@ class ApiClient {
     return this.request<Subchapter>(`/api/v1/video/subchapters/${subchapterId}/video-status`);
   }
 
+  async getDetailedVideoStatus(subchapterId: string): Promise<DetailedVideoStatus> {
+    return this.request<DetailedVideoStatus>(`/api/v1/video/subchapters/${subchapterId}/detailed-status`);
+  }
+
   async getChapterVideoStatus(chapterId: string): Promise<ChapterVideoStatus> {
     return this.request<ChapterVideoStatus>(`/api/v1/video/chapters/${chapterId}/video-status`);
   }
@@ -250,7 +276,7 @@ class ApiClient {
     return this.request<Subchapter>(`/api/v1/subchapters/${subchapterId}`);
   }
 
-  async markSubchapterComplete(subchapterId: string, completed: boolean): Promise<{ subchapter_id: string; completion_status: boolean; completed_at?: string; message: string }> {
+  async markSubchapterComplete(subchapterId: string, completed: boolean): Promise<{ subchapter_id: string; is_completed: boolean; message: string }> {
     return this.request(`/api/v1/subchapters/${subchapterId}/complete`, {
       method: 'POST',
       body: JSON.stringify({ completed }),
@@ -280,8 +306,8 @@ class ApiClient {
   }
 
   // Search
-  async searchCourse(courseId: string, query: string, maxResults = 10): Promise<{ query: string; results: Array<{ id: string; text: string; source_document: string; relevance_score: number; page_reference: string; section: string }>; total_results: number; search_time_ms: number }> {
-    return this.request(`/api/v1/projects/${courseId}/search`, {
+  async searchSyllabus(syllabusId: string, query: string, maxResults = 10): Promise<{ query: string; results: Array<{ id: string; text: string; source_document: string; relevance_score: number; page_reference: string; section: string }>; total_results: number; search_time_ms: number }> {
+    return this.request(`/api/v1/syllabi/${syllabusId}/search`, {
       method: 'POST',
       body: JSON.stringify({ query, max_results: maxResults }),
     });

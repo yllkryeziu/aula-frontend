@@ -11,16 +11,18 @@ interface VideoPlayerProps {
   videoProgress: number;
   videoFilePath: string | null;
   audioFilePath: string | null;
+  videoMessage?: string | null;
   onRetry?: () => void;
 }
 
-export const VideoPlayer = ({ 
-  subchapterId, 
-  videoStatus, 
-  videoProgress, 
-  videoFilePath, 
+export const VideoPlayer = ({
+  subchapterId,
+  videoStatus,
+  videoProgress,
+  videoFilePath,
   audioFilePath,
-  onRetry 
+  videoMessage,
+  onRetry
 }: VideoPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -126,7 +128,8 @@ export const VideoPlayer = ({
   };
 
   // Video generation in progress
-  if (videoStatus === 'QUEUED' || videoStatus === 'GENERATING_SCRIPT' || videoStatus === 'RENDERING_VIDEO') {
+  if (videoStatus === 'queued' || videoStatus === 'generating_script' || videoStatus === 'rendering_video' ||
+      videoStatus === 'QUEUED' || videoStatus === 'GENERATING_SCRIPT' || videoStatus === 'RENDERING_VIDEO') {
     return (
       <Card className="w-full">
         <CardContent className="p-6">
@@ -134,9 +137,13 @@ export const VideoPlayer = ({
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
             <h3 className="font-medium mb-2">Generating Video Content</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {videoStatus === 'QUEUED' && "Your video is queued for generation..."}
-              {videoStatus === 'GENERATING_SCRIPT' && "AI is creating educational content..."}
-              {videoStatus === 'RENDERING_VIDEO' && "Creating visual animations with voiceover..."}
+              {videoMessage || (
+                <>
+                  {(videoStatus === 'QUEUED' || videoStatus === 'queued') && "Your video is queued for generation..."}
+                  {(videoStatus === 'GENERATING_SCRIPT' || videoStatus === 'generating_script') && "AI is creating educational content..."}
+                  {(videoStatus === 'RENDERING_VIDEO' || videoStatus === 'rendering_video') && "Creating visual animations with voiceover..."}
+                </>
+              )}
             </p>
             {videoProgress > 0 && (
               <div className="w-full bg-secondary rounded-full h-2 mb-2">
@@ -156,7 +163,7 @@ export const VideoPlayer = ({
   }
 
   // Video generation failed
-  if (videoStatus === 'FAILED') {
+  if (videoStatus === 'FAILED' || videoStatus === 'failed') {
     return (
       <Card className="w-full border-destructive">
         <CardContent className="p-6">
@@ -179,7 +186,7 @@ export const VideoPlayer = ({
   }
 
   // Video not generated yet
-  if (videoStatus !== 'COMPLETED' || (!videoFilePath && !audioFilePath)) {
+  if ((videoStatus !== 'COMPLETED' && videoStatus !== 'completed') || (!videoFilePath && !audioFilePath)) {
     return (
       <Card className="w-full">
         <CardContent className="p-6">

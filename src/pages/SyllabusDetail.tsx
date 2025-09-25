@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Play, PlayCircle, FileText, MessageSquare, BookOpen, Loader2, CheckCircle2, Clock, Wand2, ChevronRight, ChevronDown, Video, Circle, AlertTriangle, RotateCcw } from "lucide-react";
+import { ArrowLeft, Play, PlayCircle, FileText, MessageSquare, BookOpen, Loader2, CheckCircle2, Clock, Wand2, ChevronRight, ChevronDown, Video, Circle, AlertTriangle, RotateCcw, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -8,41 +8,41 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useCourse, useVideoStatusPolling, useSubchapter } from "@/hooks/useApi";
+import { useSyllabus, useVideoStatusPolling, useSubchapter } from "@/hooks/useApi";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { ChapterStructureGenerator } from "@/components/ChapterStructureGenerator";
 import { Chapter, Subchapter, apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
-const ProjectDetail = () => {
-  const { projectId } = useParams();
+const SyllabusDetail = () => {
+  const { syllabusId } = useParams();
   const navigate = useNavigate();
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [selectedSubchapterId, setSelectedSubchapterId] = useState<string | null>(null);
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [videoGenerationStarted, setVideoGenerationStarted] = useState(false);
+  const [showFullContent, setShowFullContent] = useState(false);
 
   const { toast } = useToast();
-  const { course, loading: courseLoading, error: courseError } = useCourse(projectId!);
+  const { syllabus, loading: syllabusLoading, error: syllabusError } = useSyllabus(syllabusId!);
 
-  // Fetch chapters when course is loaded
+  // Fetch chapters when syllabus is loaded
   useEffect(() => {
     const fetchChapters = async () => {
-      if (!course || course.processing_status !== 'completed') return;
+      if (!syllabus) return;
 
       try {
-        // For now, we'll simulate chapters - in a real implementation, you'd have an endpoint
-        // to get all chapters for a course. Based on the API docs, this might be part of
-        // the course detail or a separate endpoint
-        setChapters([]);
+        const syllabusChapters = await apiClient.getSyllabusChapters(syllabus.id);
+        console.log('Fetched chapters:', syllabusChapters);
+        setChapters(syllabusChapters);
       } catch (error) {
         console.error('Failed to fetch chapters:', error);
       }
     };
 
     fetchChapters();
-  }, [course]);
+  }, [syllabus]);
 
   // Video status polling
   const { status: videoStatus } = useVideoStatusPolling(
@@ -58,6 +58,44 @@ const ProjectDetail = () => {
     markComplete,
     generateVideo 
   } = useSubchapter(selectedSubchapterId || '');
+
+  // Auto-trigger video generation every 15 seconds for subchapters that need it
+  useEffect(() => {
+    if (!selectedSubchapter || !selectedSubchapterId) return;
+
+    // Only trigger for subchapters that haven't started video generation
+    const needsVideoGeneration =
+      !selectedSubchapter.video_file_path &&
+      selectedSubchapter.video_status !== 'completed' &&
+      selectedSubchapter.video_status !== 'queued' &&
+      selectedSubchapter.video_status !== 'generating_script' &&
+      selectedSubchapter.video_status !== 'rendering_video';
+
+    if (!needsVideoGeneration || !generateVideo) return;
+
+    // Initial trigger
+    console.log(`Auto-triggering video generation for subchapter: ${selectedSubchapter.title}`);
+    generateVideo().catch(error => {
+      console.error('Auto video generation failed:', error);
+    });
+
+    // Set up interval for periodic checks (every 15 seconds)
+    const interval = setInterval(() => {
+      // Re-check status in case it changed
+      if (selectedSubchapter.video_status !== 'completed' &&
+          selectedSubchapter.video_status !== 'queued' &&
+          selectedSubchapter.video_status !== 'generating_script' &&
+          selectedSubchapter.video_status !== 'rendering_video' &&
+          !selectedSubchapter.video_file_path) {
+        console.log(`Auto-triggering video generation for subchapter: ${selectedSubchapter.title}`);
+        generateVideo().catch(error => {
+          console.error('Auto video generation failed:', error);
+        });
+      }
+    }, 15000); // 15 seconds
+
+    return () => clearInterval(interval);
+  }, [selectedSubchapterId]); // Only trigger on subchapter change, not status change
 
   const handleChaptersGenerated = (newChapters: Chapter[]) => {
     setChapters(newChapters);
@@ -162,39 +200,37 @@ const ProjectDetail = () => {
     const allSubchapters = chapters.flatMap(ch => ch.subchapters || []);
     if (allSubchapters.length === 0) return 0;
     
-    const completedCount = allSubchapters.filter(sub => sub.completion_status).length;
+    const completedCount = allSubchapters.filter(sub => sub.is_completed).length;
     return Math.round((completedCount / allSubchapters.length) * 100);
   };
 
   const calculateChapterProgress = (chapter: Chapter) => {
-    if (!chapter.subchapters || chapter.subchapters.length === 0) return 0;
-    
-    const completedCount = chapter.subchapters.filter(sub => sub.completion_status).length;
-    return Math.round((completedCount / chapter.subchapters.length) * 100);
+    // Use the backend-calculated completion percentage
+    return Math.round(chapter.completion_percentage);
   };
 
   const getCurrentChapter = () => {
     return chapters.find(ch => ch.subchapters?.some(sub => sub.id === selectedSubchapterId));
   };
 
-  if (courseLoading) {
+  if (syllabusLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading course...</p>
+          <p className="text-muted-foreground">Loading syllabus...</p>
         </div>
       </div>
     );
   }
 
-  if (courseError || !course) {
+  if (syllabusError || !syllabus) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <AlertTriangle className="h-8 w-8 mx-auto mb-4 text-destructive" />
-          <h2 className="text-lg font-medium mb-2">Course Not Found</h2>
-          <p className="text-muted-foreground mb-4">{courseError || 'The requested course could not be loaded.'}</p>
+          <h2 className="text-lg font-medium mb-2">Syllabus Not Found</h2>
+          <p className="text-muted-foreground mb-4">{syllabusError || 'The requested syllabus could not be loaded.'}</p>
           <Button onClick={() => navigate('/')} variant="outline">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
@@ -223,22 +259,22 @@ const ProjectDetail = () => {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div className="flex-1">
-                <h1 className="text-lg font-semibold">{course.name}</h1>
+                <h1 className="text-lg font-semibold">{syllabus.name}</h1>
                 <p className="text-sm text-muted-foreground line-clamp-2">
-                  {course.description}
+                  {syllabus.description}
                 </p>
               </div>
             </div>
             
-            {/* Course Status */}
+            {/* Syllabus Status */}
             <div className="flex items-center gap-2 mb-3">
-              <Badge variant={course.processing_status === 'completed' ? 'default' : 'secondary'}>
-                {course.processing_status === 'completed' ? 'Ready' : 
-                 course.processing_status === 'processing' ? 'Processing' :
-                 course.processing_status}
+              <Badge variant={syllabus.processing_status === 'completed' ? 'default' : 'secondary'}>
+                {syllabus.processing_status === 'completed' ? 'Ready' :
+                 syllabus.processing_status === 'processing' ? 'Processing' :
+                 syllabus.processing_status}
               </Badge>
               <span className="text-xs text-muted-foreground">
-                {course.document_count} documents
+                {syllabus.document_count} documents
               </span>
             </div>
 
@@ -257,26 +293,26 @@ const ProjectDetail = () => {
           {/* Content */}
           <ScrollArea className="flex-1 h-[calc(100vh-200px)]">
             <div className="p-4">
-              {/* Course not ready state */}
-              {course.processing_status !== 'completed' && (
+              {/* Syllabus processing state - only show if processing and no chapters yet */}
+              {syllabus.processing_status === 'processing' && chapters.length === 0 && (
                 <Card>
                   <CardContent className="p-4 text-center">
                     <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                    <h3 className="font-medium mb-2">Course Processing</h3>
+                    <h3 className="font-medium mb-2">Syllabus Processing</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Your course materials are being processed. This may take a few minutes.
+                      Your syllabus materials are being processed. This may take a few minutes.
                     </p>
                     <Badge variant="secondary" className="text-xs">
-                      Status: {course.processing_status}
+                      Status: {syllabus.processing_status}
                     </Badge>
                   </CardContent>
                 </Card>
               )}
 
-              {/* No chapters generated yet */}
-              {course.processing_status === 'completed' && chapters.length === 0 && (
+              {/* No chapters generated yet - show generator if documents exist but no chapters */}
+              {chapters.length === 0 && syllabus.document_count > 0 && (
                 <ChapterStructureGenerator 
-                  courseId={course.id}
+                  syllabusId={syllabus.id}
                   onChaptersGenerated={handleChaptersGenerated}
                 />
               )}
@@ -299,7 +335,9 @@ const ProjectDetail = () => {
                               <ChevronRight className="h-4 w-4" />
                             )}
                             <div className="flex-1">
-                              <div className="font-medium text-sm">{chapter.title}</div>
+                              <div className="font-medium text-sm break-words pr-2" title={chapter.title}>
+                                {chapter.title}
+                              </div>
                               <div className="flex items-center gap-2 mt-1">
                                 <Progress 
                                   value={calculateChapterProgress(chapter)} 
@@ -337,12 +375,14 @@ const ProjectDetail = () => {
                             >
                               <div className="flex items-center gap-2 w-full">
                                 <div className="flex items-center gap-2 flex-1">
-                                  {subchapter.completion_status ? (
+                                  {subchapter.is_completed ? (
                                     <CheckCircle2 className="h-4 w-4 text-green-500" />
                                   ) : (
                                     <Circle className="h-4 w-4 text-muted-foreground" />
                                   )}
-                                  <span className="text-sm">{subchapter.title}</span>
+                                  <span className="text-sm break-words" title={subchapter.title}>
+                                    {subchapter.title}
+                                  </span>
                                 </div>
                                 
                                 {/* Video status indicator */}
@@ -350,7 +390,10 @@ const ProjectDetail = () => {
                                   {subchapter.video_status === 'COMPLETED' && (
                                     <Video className="h-3 w-3 text-green-500" />
                                   )}
-                                  {(subchapter.video_status === 'GENERATING_SCRIPT' || 
+                                  {subchapter.video_status === 'QUEUED' && (
+                                    <Clock className="h-3 w-3 text-orange-500" />
+                                  )}
+                                  {(subchapter.video_status === 'GENERATING_SCRIPT' ||
                                     subchapter.video_status === 'RENDERING_VIDEO') && (
                                     <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
                                   )}
@@ -388,7 +431,7 @@ const ProjectDetail = () => {
                   <Badge variant="outline">
                     Chapter {currentChapter?.order_index}
                   </Badge>
-                  {selectedSubchapter.completion_status && (
+                  {selectedSubchapter.is_completed && (
                     <Badge variant="default" className="bg-green-100 text-green-800">
                       <CheckCircle2 className="h-3 w-3 mr-1" />
                       Completed
@@ -396,13 +439,12 @@ const ProjectDetail = () => {
                   )}
                 </div>
                 <h1 className="text-3xl font-bold mb-2">{selectedSubchapter.title}</h1>
-                <p className="text-muted-foreground mb-4">{selectedSubchapter.text_description}</p>
 
                 {/* Completion Toggle */}
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="completed"
-                    checked={selectedSubchapter.completion_status}
+                    checked={selectedSubchapter.is_completed}
                     onCheckedChange={handleSubchapterComplete}
                   />
                   <label
@@ -439,6 +481,7 @@ const ProjectDetail = () => {
                     videoProgress={selectedSubchapter.video_progress}
                     videoFilePath={selectedSubchapter.video_file_path}
                     audioFilePath={selectedSubchapter.audio_file_path}
+                    videoMessage={selectedSubchapter.video_message}
                     onRetry={handleRegenerateVideo}
                   />
 
@@ -449,8 +492,31 @@ const ProjectDetail = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="prose prose-sm max-w-none">
-                        <p>{selectedSubchapter.text_description}</p>
-                        
+                        <div className="mb-4">
+                          <p className={`transition-all duration-300 ${!showFullContent ? 'line-clamp-3' : ''}`}>
+                            {selectedSubchapter.text_description}
+                          </p>
+
+                          {selectedSubchapter.text_description && selectedSubchapter.text_description.length > 200 && (
+                            <button
+                              onClick={() => setShowFullContent(!showFullContent)}
+                              className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                            >
+                              {showFullContent ? (
+                                <>
+                                  <span>Show less</span>
+                                  <ChevronUp className="h-4 w-4" />
+                                </>
+                              ) : (
+                                <>
+                                  <span>Show more</span>
+                                  <ChevronDown className="h-4 w-4" />
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+
                         {selectedSubchapter.rag_content && (
                           <div className="mt-6 p-4 bg-muted rounded-lg">
                             <h4 className="font-medium mb-2">Related Course Materials:</h4>
@@ -522,7 +588,7 @@ const ProjectDetail = () => {
               <div className="text-center">
                 <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-medium mb-2">
-                  {chapters.length === 0 ? 'Generate Course Structure' : 'Select a Lesson'}
+                  {chapters.length === 0 ? 'Generate Syllabus Structure' : 'Select a Lesson'}
                 </h3>
                 <p className="text-muted-foreground">
                   {chapters.length === 0 
@@ -539,4 +605,4 @@ const ProjectDetail = () => {
   );
 };
 
-export default ProjectDetail;
+export default SyllabusDetail;

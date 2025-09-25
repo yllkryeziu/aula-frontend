@@ -8,66 +8,66 @@ import { Progress } from "@/components/ui/progress";
 import { useDocuments } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 
-interface CreateProjectModalProps {
+interface CreateSyllabusModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreateProject: (courseId: string, name: string) => void;
+  onCreateSyllabus: (syllabusId: string, name: string) => void;
 }
 
-export const CreateProjectModal = ({ isOpen, onClose, onCreateProject }: CreateProjectModalProps) => {
+export const CreateSyllabusModal = ({ isOpen, onClose, onCreateSyllabus }: CreateSyllabusModalProps) => {
   const [step, setStep] = useState(1);
-  const [projectName, setProjectName] = useState("");
+  const [syllabusName, setSyllabusName] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [courseId, setCourseId] = useState<string | null>(null);
+  const [syllabusId, setSyllabusId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [creatingCourse, setCreatingCourse] = useState(false);
+  const [creatingSyllabus, setCreatingSyllabus] = useState(false);
   
   const { toast } = useToast();
-  const { uploadDocument } = useDocuments(courseId || '');
+  const { uploadDocument } = useDocuments(syllabusId || '');
 
   const handleNext = async () => {
-    if (step === 1 && projectName.trim()) {
+    if (step === 1 && syllabusName.trim()) {
       try {
-        setCreatingCourse(true);
-        // Create course first
+        setCreatingSyllabus(true);
+        // Create syllabus first
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/syllabi/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            name: projectName,
-            description: `A project for studying ${projectName} course materials, where Claude helps create personalized learning resources, visualize key concepts, and build comprehensive study strategies tailored to your learning needs.`,
+            name: syllabusName,
+            description: `A syllabus for studying ${syllabusName} materials, where Claude helps create personalized learning resources, visualize key concepts, and build comprehensive study strategies tailored to your learning needs.`,
           }),
         });
 
         if (!response.ok) {
-          throw new Error('Failed to create course');
+          throw new Error('Failed to create syllabus');
         }
 
-        const course = await response.json();
-        setCourseId(course.id);
+        const syllabus = await response.json();
+        setSyllabusId(syllabus.id);
         setStep(2);
         
         toast({
-          title: "Course Created",
+          title: "Syllabus Created",
           description: "Now add reference materials to generate your personalized curriculum.",
         });
       } catch (error) {
         toast({
           title: "Error",
-          description: "Failed to create course. Please try again.",
+          description: "Failed to create syllabus. Please try again.",
           variant: "destructive",
         });
       } finally {
-        setCreatingCourse(false);
+        setCreatingSyllabus(false);
       }
     }
   };
 
   const handleCreate = async () => {
-    if (!courseId) return;
+    if (!syllabusId) return;
 
     if (files.length > 0) {
       try {
@@ -82,7 +82,7 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreateProject }: CreateP
 
         toast({
           title: "Upload Complete",
-          description: "All materials uploaded. You can now generate your course structure!",
+          description: "All materials uploaded. You can now generate your syllabus structure!",
         });
       } catch (error) {
         toast({
@@ -95,14 +95,14 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreateProject }: CreateP
       }
     }
 
-    // Navigate to the course
-    onCreateProject(courseId, projectName);
+    // Navigate to the syllabus
+    onCreateSyllabus(syllabusId, syllabusName);
     
     // Reset modal state
     setStep(1);
-    setProjectName("");
+    setSyllabusName("");
     setFiles([]);
-    setCourseId(null);
+    setSyllabusId(null);
     setUploadProgress(0);
     onClose();
   };
@@ -114,7 +114,7 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreateProject }: CreateP
 
   const handleReset = () => {
     setStep(1);
-    setProjectName("");
+    setSyllabusName("");
     setFiles([]);
     onClose();
   };
@@ -127,7 +127,7 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreateProject }: CreateP
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-semibold">
-                {step === 1 ? "Create a study project" : "Add reference materials"}
+                {step === 1 ? "Create a syllabus" : "Add reference materials"}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 Step {step} of 2
@@ -148,11 +148,11 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreateProject }: CreateP
             <div className="space-y-6">
               <div>
                 <Label htmlFor="course-name" className="text-base font-medium">
-                  What course are you studying?
+                  What subject are you studying?
                 </Label>
                 <Input
                   id="course-name"
-                  value={projectName}
+                  value={syllabusName}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder=""
                   className="mt-3 h-12 text-base"
@@ -166,16 +166,16 @@ export const CreateProjectModal = ({ isOpen, onClose, onCreateProject }: CreateP
                 </Button>
                 <Button 
                   onClick={handleNext}
-                  disabled={!projectName.trim() || creatingCourse}
+                  disabled={!syllabusName.trim() || creatingSyllabus}
                   className="bg-primary hover:bg-primary/90"
                 >
-                  {creatingCourse ? (
+                  {creatingSyllabus ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Creating...
                     </>
                   ) : (
-                    'Create project'
+                    'Create syllabus'
                   )}
                 </Button>
               </div>

@@ -1,22 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiClient, Course, Chapter, Subchapter, Document, ChapterVideoStatus } from '@/lib/api';
+import { apiClient, Syllabus, Chapter, Subchapter, Document, ChapterVideoStatus } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
-// Course hooks
-export const useCourses = () => {
-  const [courses, setCourses] = useState<Course[]>([]);
+// Syllabus hooks
+export const useSyllabi = () => {
+  const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const fetchCourses = useCallback(async () => {
+  const fetchSyllabi = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiClient.getCourses();
-      setCourses(data);
+      const data = await apiClient.getSyllabi();
+      setSyllabi(data);
       setError(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch courses';
+      const message = err instanceof Error ? err.message : 'Failed to fetch syllabi';
       setError(message);
       toast({
         title: "Error",
@@ -29,16 +29,16 @@ export const useCourses = () => {
   }, [toast]);
 
   useEffect(() => {
-    fetchCourses();
-  }, [fetchCourses]);
+    fetchSyllabi();
+  }, [fetchSyllabi]);
 
-  const createCourse = async (name: string, description: string) => {
+  const createSyllabus = async (name: string, description: string) => {
     try {
-      const newCourse = await apiClient.createCourse(name, description);
-      setCourses(prev => [newCourse, ...prev]);
-      return newCourse;
+      const newSyllabus = await apiClient.createSyllabus(name, description);
+      setSyllabi(prev => [newSyllabus, ...prev]);
+      return newSyllabus;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create course';
+      const message = err instanceof Error ? err.message : 'Failed to create syllabus';
       toast({
         title: "Error",
         description: message,
@@ -48,16 +48,16 @@ export const useCourses = () => {
     }
   };
 
-  const deleteCourse = async (courseId: string) => {
+  const deleteSyllabus = async (syllabusId: string) => {
     try {
-      await apiClient.deleteCourse(courseId);
-      setCourses(prev => prev.filter(course => course.id !== courseId));
+      await apiClient.deleteSyllabus(syllabusId);
+      setSyllabi(prev => prev.filter(syllabus => syllabus.id !== syllabusId));
       toast({
         title: "Success",
-        description: "Course deleted successfully",
+        description: "Syllabus deleted successfully",
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete course';
+      const message = err instanceof Error ? err.message : 'Failed to delete syllabus';
       toast({
         title: "Error",
         description: message,
@@ -68,32 +68,32 @@ export const useCourses = () => {
   };
 
   return {
-    courses,
+    syllabi,
     loading,
     error,
-    createCourse,
-    deleteCourse,
-    refetch: fetchCourses,
+    createSyllabus,
+    deleteSyllabus,
+    refetch: fetchSyllabi,
   };
 };
 
-// Course detail hook
-export const useCourse = (courseId: string) => {
-  const [course, setCourse] = useState<Course | null>(null);
+// Syllabus detail hook
+export const useSyllabus = (syllabusId: string) => {
+  const [syllabus, setSyllabus] = useState<Syllabus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const fetchCourse = useCallback(async () => {
-    if (!courseId) return;
-    
+  const fetchSyllabus = useCallback(async () => {
+    if (!syllabusId) return;
+
     try {
       setLoading(true);
-      const data = await apiClient.getCourse(courseId);
-      setCourse(data);
+      const data = await apiClient.getSyllabus(syllabusId);
+      setSyllabus(data);
       setError(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch course';
+      const message = err instanceof Error ? err.message : 'Failed to fetch syllabus';
       setError(message);
       toast({
         title: "Error",
@@ -103,17 +103,17 @@ export const useCourse = (courseId: string) => {
     } finally {
       setLoading(false);
     }
-  }, [courseId, toast]);
+  }, [syllabusId, toast]);
 
   useEffect(() => {
-    fetchCourse();
-  }, [fetchCourse]);
+    fetchSyllabus();
+  }, [fetchSyllabus]);
 
   return {
-    course,
+    syllabus,
     loading,
     error,
-    refetch: fetchCourse,
+    refetch: fetchSyllabus,
   };
 };
 
@@ -214,7 +214,7 @@ export const useSubchapter = (subchapterId: string) => {
   const markComplete = async (completed: boolean) => {
     try {
       const result = await apiClient.markSubchapterComplete(subchapterId, completed);
-      setSubchapter(prev => prev ? { ...prev, completion_status: completed } : null);
+      setSubchapter(prev => prev ? { ...prev, is_completed: completed } : null);
       toast({
         title: "Progress Updated",
         description: result.message,
@@ -233,7 +233,9 @@ export const useSubchapter = (subchapterId: string) => {
 
   const generateVideo = async () => {
     try {
-      const result = await apiClient.generateSubchapterVideo(subchapterId);
+      const result = await apiClient.generateSubchapterVideo(subchapterId, {
+        subchapter_id: subchapterId
+      });
       toast({
         title: "Video Generation Started",
         description: `Estimated duration: ${result.estimated_duration}`,
@@ -304,18 +306,18 @@ export const useVideoStatusPolling = (chapterId: string, enabled = false, interv
 };
 
 // Documents hook
-export const useDocuments = (courseId: string) => {
+export const useDocuments = (syllabusId: string) => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchDocuments = useCallback(async () => {
-    if (!courseId) return;
-    
+    if (!syllabusId) return;
+
     try {
       setLoading(true);
-      const data = await apiClient.getCourseDocuments(courseId);
+      const data = await apiClient.getSyllabusDocuments(syllabusId);
       setDocuments(data);
       setError(null);
     } catch (err) {
@@ -329,7 +331,7 @@ export const useDocuments = (courseId: string) => {
     } finally {
       setLoading(false);
     }
-  }, [courseId, toast]);
+  }, [syllabusId, toast]);
 
   useEffect(() => {
     fetchDocuments();
@@ -337,7 +339,7 @@ export const useDocuments = (courseId: string) => {
 
   const uploadDocument = async (file: File) => {
     try {
-      const newDocument = await apiClient.uploadDocument(courseId, file);
+      const newDocument = await apiClient.uploadDocument(syllabusId, file);
       setDocuments(prev => [newDocument, ...prev]);
       toast({
         title: "Upload Started",

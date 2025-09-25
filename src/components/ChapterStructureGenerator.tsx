@@ -6,11 +6,11 @@ import { apiClient, Chapter } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface ChapterStructureGeneratorProps {
-  courseId: string;
+  syllabusId: string;
   onChaptersGenerated: (chapters: Chapter[]) => void;
 }
 
-export const ChapterStructureGenerator = ({ courseId, onChaptersGenerated }: ChapterStructureGeneratorProps) => {
+export const ChapterStructureGenerator = ({ syllabusId, onChaptersGenerated }: ChapterStructureGeneratorProps) => {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -20,7 +20,7 @@ export const ChapterStructureGenerator = ({ courseId, onChaptersGenerated }: Cha
       setGenerating(true);
       setError(null);
 
-      const chapters = await apiClient.generateChapters(courseId, {
+      const chapters = await apiClient.generateChapters(syllabusId, {
         max_items: 8,
         depth_level: 2
       });
@@ -28,11 +28,11 @@ export const ChapterStructureGenerator = ({ courseId, onChaptersGenerated }: Cha
       onChaptersGenerated(chapters);
       
       toast({
-        title: "Course Structure Generated!",
+        title: "Syllabus Structure Generated!",
         description: `Created ${chapters.length} chapters from your uploaded materials.`,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to generate course structure';
+      const message = err instanceof Error ? err.message : 'Failed to generate syllabus structure';
       setError(message);
       toast({
         title: "Generation Failed",
@@ -50,7 +50,7 @@ export const ChapterStructureGenerator = ({ courseId, onChaptersGenerated }: Cha
         <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
           <BookOpen className="h-6 w-6 text-primary" />
         </div>
-        <CardTitle>Generate Course Structure</CardTitle>
+        <CardTitle>Generate Syllabus Structure</CardTitle>
         <CardDescription>
           AI will analyze your uploaded materials and create a comprehensive learning curriculum with chapters and lessons.
         </CardDescription>
@@ -98,7 +98,7 @@ export const ChapterStructureGenerator = ({ courseId, onChaptersGenerated }: Cha
           ) : (
             <>
               <Wand2 className="mr-2 h-4 w-4" />
-              Generate Course Structure
+              Generate Syllabus Structure
             </>
           )}
         </Button>
