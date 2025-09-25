@@ -153,7 +153,7 @@ export const CreateSyllabusModal = ({ isOpen, onClose, onCreateSyllabus }: Creat
                 <Input
                   id="course-name"
                   value={syllabusName}
-                  onChange={(e) => setProjectName(e.target.value)}
+                  onChange={(e) => setSyllabusName(e.target.value)}
                   placeholder=""
                   className="mt-3 h-12 text-base"
                   autoFocus

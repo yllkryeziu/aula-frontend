@@ -268,8 +268,8 @@ const SyllabusDetail = () => {
             
             {/* Syllabus Status */}
             <div className="flex items-center gap-2 mb-3">
-              <Badge variant={syllabus.processing_status === 'completed' ? 'default' : 'secondary'}>
-                {syllabus.processing_status === 'completed' ? 'Ready' :
+              <Badge variant={syllabus.processing_status === 'ready' ? 'default' : 'secondary'}>
+                {syllabus.processing_status === 'ready' ? 'Ready' :
                  syllabus.processing_status === 'processing' ? 'Processing' :
                  syllabus.processing_status}
               </Badge>
@@ -334,8 +334,8 @@ const SyllabusDetail = () => {
                             ) : (
                               <ChevronRight className="h-4 w-4" />
                             )}
-                            <div className="flex-1">
-                              <div className="font-medium text-sm break-words pr-2" title={chapter.title}>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm break-words hyphens-auto text-wrap" title={chapter.title}>
                                 {chapter.title}
                               </div>
                               <div className="flex items-center gap-2 mt-1">
@@ -374,30 +374,30 @@ const SyllabusDetail = () => {
                               onClick={() => setSelectedSubchapterId(subchapter.id)}
                             >
                               <div className="flex items-center gap-2 w-full">
-                                <div className="flex items-center gap-2 flex-1">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
                                   {subchapter.is_completed ? (
-                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                    <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                                   ) : (
-                                    <Circle className="h-4 w-4 text-muted-foreground" />
+                                    <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
                                   )}
-                                  <span className="text-sm break-words" title={subchapter.title}>
+                                  <span className="text-sm break-words hyphens-auto text-wrap" title={subchapter.title}>
                                     {subchapter.title}
                                   </span>
                                 </div>
                                 
                                 {/* Video status indicator */}
                                 <div className="shrink-0">
-                                  {subchapter.video_status === 'COMPLETED' && (
+                                  {subchapter.video_status === 'completed' && (
                                     <Video className="h-3 w-3 text-green-500" />
                                   )}
-                                  {subchapter.video_status === 'QUEUED' && (
+                                  {subchapter.video_status === 'queued' && (
                                     <Clock className="h-3 w-3 text-orange-500" />
                                   )}
-                                  {(subchapter.video_status === 'GENERATING_SCRIPT' ||
-                                    subchapter.video_status === 'RENDERING_VIDEO') && (
+                                  {(subchapter.video_status === 'generating_script' ||
+                                    subchapter.video_status === 'rendering_video') && (
                                     <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
                                   )}
-                                  {subchapter.video_status === 'FAILED' && (
+                                  {subchapter.video_status === 'failed' && (
                                     <AlertTriangle className="h-3 w-3 text-red-500" />
                                   )}
                                 </div>
