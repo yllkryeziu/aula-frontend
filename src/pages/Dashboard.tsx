@@ -46,7 +46,7 @@ const Dashboard = () => {
             <img 
               src="/aula-logo-text.svg" 
               alt="Aula - The Best Learning Platform" 
-              className="h-24 w-auto object-contain"
+              className="h-32 w-auto object-contain"
             />
           </div>
         </div>
