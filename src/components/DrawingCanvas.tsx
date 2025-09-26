@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Send } from "lucide-react";
 import { apiClient } from "@/lib/api";
+import { VideoPlayer } from "@/components/VideoPlayer";
+import { useBlackboardVideo } from "@/hooks/useApi";
 
 interface DrawingCanvasProps {
   subchapterId: string;
@@ -34,11 +36,12 @@ export const DrawingCanvas = ({
   const [activeTool, setActiveTool] = useState<DrawingTool>("draw");
   const [brushSize, setBrushSize] = useState(3);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string>(persistedAnalysis || "");
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string>(persistedVideo || "");
 
   const { toast } = useToast();
+
+  // Blackboard video polling hook
+  const { blackboardStatus } = useBlackboardVideo(subchapterId, true, 15000);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -153,7 +156,6 @@ export const DrawingCanvas = ({
 
     // Clear all persisted state
     setAnalysisResult("");
-    setGeneratedVideoUrl("");
     onCanvasDataChange?.("");
     onAnalysisChange?.("");
     onVideoChange?.("");
@@ -324,20 +326,18 @@ export const DrawingCanvas = ({
       setAnalysisResult(analysis);
       onAnalysisChange?.(analysis);
 
-      // Step 2: Start video generation
-      setIsGeneratingVideo(true);
-      // Clear previous video when starting new generation
-      setGeneratedVideoUrl("");
-      onVideoChange?.("");
-
+      // Step 2: Start blackboard video generation
       toast({
         title: "Starting Video Generation",
         description: "Creating your educational video...",
       });
 
-      const videoUrl = await generateVideo(analysis);
-      setGeneratedVideoUrl(videoUrl);
-      onVideoChange?.(videoUrl);
+      await generateVideo(analysis);
+
+      toast({
+        title: "Video Generation Started",
+        description: "Your blackboard video is being generated. This usually takes 2-3 minutes.",
+      });
 
     } catch (error) {
       console.error("Error analyzing drawing:", error);
@@ -354,7 +354,6 @@ export const DrawingCanvas = ({
       });
     } finally {
       setIsAnalyzing(false);
-      setIsGeneratingVideo(false);
     }
   };
 
@@ -377,18 +376,13 @@ export const DrawingCanvas = ({
 
             <Button
               onClick={analyzeDrawing}
-              disabled={isAnalyzing || isGeneratingVideo}
+              disabled={isAnalyzing}
               className="min-w-[200px] px-10 py-4 bg-accent hover:bg-accent/90 text-accent-foreground shadow-sm hover:shadow transition-all duration-200 whitespace-nowrap text-xs"
             >
               {isAnalyzing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Analyzing...
-                </>
-              ) : isGeneratingVideo ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Video...
                 </>
               ) : (
                 <>
@@ -414,73 +408,20 @@ export const DrawingCanvas = ({
         </CardContent>
       </Card>
 
-      {/* Analysis Result */}
-      {analysisResult && (
-        <Card>
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-3 text-primary">Claude Analysis:</h3>
-            <div className="prose prose-sm max-w-none">
-              <p className="whitespace-pre-wrap text-foreground">{analysisResult}</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Generated Video */}
-      {(isGeneratingVideo || generatedVideoUrl) && (
-        <Card>
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-3 text-primary">Generated Video:</h3>
-
-            {isGeneratingVideo ? (
-              // Loading state while video is being generated
-              <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                <div className="relative">
-                  <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                  <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
-                </div>
-                <div className="text-center space-y-2">
-                  <h4 className="text-lg font-medium">Creating Your Video...</h4>
-                  <p className="text-muted-foreground max-w-md">
-                    Our AI is processing your drawing and generating an educational video explanation.
-                    This usually takes 2-3 minutes.
-                  </p>
-                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mt-4">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
-                    <span className="ml-2">Please wait...</span>
-                  </div>
-                </div>
-              </div>
-            ) : generatedVideoUrl ? (
-              // Show video when it's ready
-              <div className="flex justify-center">
-                <video
-                  src={generatedVideoUrl}
-                  controls
-                  className="max-w-full h-auto rounded-lg shadow-lg"
-                  style={{ maxHeight: '400px' }}
-                  onError={(e) => {
-                    // Only show error if the video URL is actually set and failed to load
-                    // Ignore errors when URL is being cleared/reset
-                    if (generatedVideoUrl && generatedVideoUrl.trim() !== '') {
-                      console.error('Video load error:', e);
-                      toast({
-                        title: "Video Error",
-                        description: "Failed to load the generated video.",
-                        variant: "destructive",
-                      });
-                    }
-                  }}
-                >
-                  Your browser does not support the video tag.
-                </video>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      )}
+      {/* Blackboard Video Player */}
+      <VideoPlayer
+        subchapterId={subchapterId}
+        videoStatus={blackboardStatus?.status || 'not_started'}
+        videoProgress={blackboardStatus?.progress || 0}
+        videoFilePath={blackboardStatus?.filePath}
+        audioFilePath={null}
+        videoMessage={blackboardStatus?.message}
+        videoType="blackboard"
+        onGenerateVideo={() => {
+          // This will be handled by the analyze function
+          console.log('Generate video triggered from VideoPlayer');
+        }}
+      />
 
       {/* Instructions */}
       <div className="text-center text-sm text-muted-foreground">

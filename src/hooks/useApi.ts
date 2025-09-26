@@ -465,3 +465,52 @@ export const useDocuments = (syllabusId: string) => {
     refetch: fetchDocuments,
   };
 };
+
+// Blackboard video polling hook - polls shared subchapter endpoint for blackboard video fields
+export const useBlackboardVideo = (subchapterId: string, enabled = true, interval = 15000) => {
+  const [blackboardStatus, setBlackboardStatus] = useState<{
+    status: string;
+    progress: number;
+    message: string | null;
+    filePath: string | null;
+  } | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBlackboardStatus = useCallback(async () => {
+    if (!subchapterId || !enabled) return;
+
+    try {
+      const subchapter = await apiClient.getSubchapter(subchapterId);
+      setBlackboardStatus({
+        status: subchapter.blackboard_video_status || 'not_started',
+        progress: subchapter.blackboard_video_progress || 0,
+        message: subchapter.blackboard_video_message || null,
+        filePath: subchapter.blackboard_video_file_path || null,
+      });
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch blackboard video status');
+    } finally {
+      setLoading(false);
+    }
+  }, [subchapterId, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    fetchBlackboardStatus();
+
+    const intervalId = setInterval(fetchBlackboardStatus, interval);
+
+    return () => clearInterval(intervalId);
+  }, [fetchBlackboardStatus, interval, enabled]);
+
+  return {
+    blackboardStatus,
+    loading,
+    error,
+    refetch: fetchBlackboardStatus,
+  };
+};

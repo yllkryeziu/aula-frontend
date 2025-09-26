@@ -42,6 +42,10 @@ export interface Subchapter {
   video_status: 'not_started' | 'queued' | 'generating_script' | 'generating_images' | 'generating_audio' | 'creating_scenes' | 'rendering_video' | 'completed' | 'failed';
   video_progress: number;
   video_message: string | null;
+  blackboard_video_status?: string;
+  blackboard_video_progress?: number;
+  blackboard_video_message?: string | null;
+  blackboard_video_file_path?: string | null;
   is_completed: boolean;
   created_at: string;
 }
@@ -294,6 +298,10 @@ class ApiClient {
 
   getAudioUrl(subchapterId: string): string {
     return `${this.baseUrl}/api/v1/subchapters/${subchapterId}/audio`;
+  }
+
+  getBlackboardVideoUrl(subchapterId: string): string {
+    return `${this.baseUrl}/api/v1/subchapters/${subchapterId}/blackboard-video`;
   }
 
   async getSubtitles(subchapterId: string): Promise<{ subchapter_id: string; title: string; subtitles: string; has_subtitles: boolean; word_count: number; estimated_reading_time: string }> {

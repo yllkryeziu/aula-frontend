@@ -14,6 +14,7 @@ interface VideoPlayerProps {
   videoMessage?: string | null;
   onRetry?: () => void;
   onGenerateVideo?: () => void;
+  videoType?: 'explanation' | 'blackboard';
 }
 
 export const VideoPlayer = ({
@@ -24,7 +25,8 @@ export const VideoPlayer = ({
   audioFilePath,
   videoMessage,
   onRetry,
-  onGenerateVideo
+  onGenerateVideo,
+  videoType = 'explanation'
 }: VideoPlayerProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -306,7 +308,7 @@ export const VideoPlayer = ({
                 <video
                   ref={videoRef}
                   className="w-full h-auto max-h-96 object-contain"
-                  src={apiClient.getVideoUrl(subchapterId)}
+                  src={videoType === 'blackboard' ? apiClient.getBlackboardVideoUrl(subchapterId) : apiClient.getVideoUrl(subchapterId)}
                   preload="metadata"
                   onError={() => setError('Failed to load video')}
                 />
