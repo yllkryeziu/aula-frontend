@@ -41,17 +41,13 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8 text-center">
-          <div className="flex items-center justify-center mb-4">
-            <img src="/aula-logo.png" alt="Aula" className="h-16 w-16 mr-4" />
-            <div className="text-left">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                Aula
-              </h1>
-              <p className="text-lg text-muted-foreground">
-                The Best Learning Platform
-              </p>
-            </div>
+        <div className="mb-12 text-center">
+          <div className="flex justify-center mb-6">
+            <img 
+              src="/aula-logo-text.svg" 
+              alt="Aula - The Best Learning Platform" 
+              className="h-24 w-auto object-contain"
+            />
           </div>
         </div>
 
