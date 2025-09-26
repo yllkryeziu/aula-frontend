@@ -378,7 +378,7 @@ export const DrawingCanvas = ({
             <Button
               onClick={analyzeDrawing}
               disabled={isAnalyzing || isGeneratingVideo}
-              className="min-w-[180px]"
+              className="min-w-[200px] px-10 py-4 bg-accent hover:bg-accent/90 text-accent-foreground shadow-sm hover:shadow transition-all duration-200 whitespace-nowrap text-xs"
             >
               {isAnalyzing ? (
                 <>

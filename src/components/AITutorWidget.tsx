@@ -162,8 +162,12 @@ ${ragContext ? `\n# Available RAG Context:\n${ragContext}` : ''}`;
   return (
     <div
       ref={containerRef}
-      className="h-full w-full"
-      style={{ minHeight: '400px' }}
+      className="h-full w-full relative overflow-hidden"
+      style={{
+        minHeight: '400px',
+        position: 'relative',
+        contain: 'layout style paint'
+      }}
     />
   );
 };

@@ -549,7 +549,7 @@ const SyllabusDetail = () => {
                   </TabsTrigger>
                   <TabsTrigger value="teacher">
                     <MessageSquare className="h-4 w-4 mr-2" />
-                    Ask Teacher
+                    Tutor Me!
                   </TabsTrigger>
                   <TabsTrigger value="blackboard">
                     <PenTool className="h-4 w-4 mr-2" />
@@ -637,37 +637,59 @@ const SyllabusDetail = () => {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {!isTutorActive ? (
-                        <div className="text-center py-8">
-                          <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                          <p className="text-muted-foreground mb-4">
-                            Get personalized help and explanations about "{enhancedSubchapter.title}" from your AI tutor
-                          </p>
-                          <Button onClick={() => setIsTutorActive(true)} variant="default">
-                            Start Conversation
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center">
-                            <h3 className="font-medium">Discussing: {enhancedSubchapter.title}</h3>
+                      <div className="border border-border rounded-lg bg-muted/30" style={{ height: '500px', position: 'relative' }}>
+                        {!isTutorActive ? (
+                          <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                            <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mb-6 shadow-sm">
+                              <MessageSquare className="h-8 w-8 text-accent-foreground" />
+                            </div>
+                            <h3 className="text-xl font-semibold mb-3 text-foreground">
+                              Chat with Aula
+                            </h3>
+                            <p className="text-muted-foreground mb-6 max-w-md leading-relaxed">
+                              Get personalized help and explanations about "{enhancedSubchapter.title}" from your AI tutor using voice
+                            </p>
                             <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setIsTutorActive(false)}
+                              onClick={() => setIsTutorActive(true)}
+                              className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-3 rounded-lg font-medium shadow-sm hover:shadow transition-all duration-200"
                             >
-                              End Conversation
+                              Start Conversation
                             </Button>
+                            <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">
+                              Powered by ElevenLabs
+                            </div>
                           </div>
-                          <div className="border rounded-lg overflow-hidden">
-                            <AITutorWidget
-                              topic={enhancedSubchapter.title}
-                              ragContext={ragContent || enhancedSubchapter.text_description || ''}
-                              onClose={() => setIsTutorActive(false)}
-                            />
+                        ) : (
+                          <div className="h-full flex flex-col">
+                            <div className="flex justify-between items-center p-4 border-b border-border bg-card rounded-t-lg">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center shadow-sm">
+                                  <MessageSquare className="h-4 w-4 text-accent-foreground" />
+                                </div>
+                                <div>
+                                  <h3 className="font-medium text-card-foreground">Aula - AI Tutor</h3>
+                                  <p className="text-sm text-muted-foreground">Discussing: {enhancedSubchapter.title}</p>
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsTutorActive(false)}
+                                className="hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20"
+                              >
+                                End Conversation
+                              </Button>
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                              <AITutorWidget
+                                topic={enhancedSubchapter.title}
+                                ragContext={ragContent || enhancedSubchapter.text_description || ''}
+                                onClose={() => setIsTutorActive(false)}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
