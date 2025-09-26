@@ -49,15 +49,9 @@ const Dashboard = () => {
                 Aula
               </h1>
               <p className="text-lg text-muted-foreground">
-                AI-Powered Learning Platform
+                The Best Learning Platform
               </p>
             </div>
-          </div>
-          <div className="max-w-2xl mx-auto">
-            <h2 className="text-2xl font-semibold mb-2 text-foreground">Study Syllabi</h2>
-            <p className="text-muted-foreground">
-              Create personalized learning experiences with AI-generated video content
-            </p>
           </div>
         </div>
 
