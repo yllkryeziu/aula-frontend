@@ -610,19 +610,6 @@ const SyllabusDetail = () => {
                           )}
                         </div>
 
-                        {enhancedSubchapter.rag_content && (
-                          <div className="mt-6 p-4 bg-muted rounded-lg">
-                            <h4 className="font-medium mb-2">Related Course Materials:</h4>
-                            <div className="text-sm prose prose-sm">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[rehypeHighlight]}
-                              >
-                                {enhancedSubchapter.rag_content.substring(0, 500) + (enhancedSubchapter.rag_content.length > 500 ? '...' : '')}
-                              </ReactMarkdown>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -683,7 +670,14 @@ const SyllabusDetail = () => {
                             <div className="flex-1 overflow-hidden">
                               <AITutorWidget
                                 topic={enhancedSubchapter.title}
-                                ragContext={ragContent || enhancedSubchapter.text_description || ''}
+                                ragContext={`## Main Content:
+${enhancedSubchapter.text_description || ''}
+
+${enhancedSubchapter.subtitles ? `## Video Content:
+${enhancedSubchapter.subtitles}` : ''}
+
+${ragContent ? `## Related Materials:
+${ragContent}` : ''}`}
                                 onClose={() => setIsTutorActive(false)}
                               />
                             </div>
