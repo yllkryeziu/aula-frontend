@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useSyllabus, useSyllabusStatusPolling, useVideoStatusPolling, useSubchapter } from "@/hooks/useApi";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { ChapterStructureGenerator } from "@/components/ChapterStructureGenerator";
+import AITutorWidget from "@/components/AITutorWidget";
 import { Chapter, Subchapter, apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,6 +27,8 @@ const SyllabusDetail = () => {
   const [selectedSubchapterId, setSelectedSubchapterId] = useState<string | null>(null);
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [showFullContent, setShowFullContent] = useState(false);
+  const [isTutorActive, setIsTutorActive] = useState(false);
+  const [ragContent, setRagContent] = useState<string>('');
 
   const { toast } = useToast();
   const { syllabus, loading: syllabusLoading, error: syllabusError } = useSyllabus(syllabusId!);
@@ -85,6 +88,26 @@ const SyllabusDetail = () => {
     pollingEnabled,
     15000
   );
+
+  // Fetch RAG content when subchapter changes
+  useEffect(() => {
+    const fetchRagContent = async () => {
+      if (!selectedSubchapterId) {
+        setRagContent('');
+        return;
+      }
+
+      try {
+        const ragResponse = await apiClient.getRagContent(selectedSubchapterId);
+        setRagContent(ragResponse.rag_content || '');
+      } catch (error) {
+        console.error('Failed to fetch RAG content:', error);
+        setRagContent('');
+      }
+    };
+
+    fetchRagContent();
+  }, [selectedSubchapterId]);
 
   // Create enhanced subchapter object that merges polling data with base subchapter data
   const enhancedSubchapter = useMemo(() => {
@@ -604,19 +627,41 @@ const SyllabusDetail = () => {
                     <CardHeader>
                       <CardTitle>AI Teacher</CardTitle>
                       <CardDescription>
-                        Chat with your AI teacher about this lesson (Coming Soon)
+                        Chat with your AI teacher about this lesson using voice
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-center py-8">
-                        <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-muted-foreground mb-4">
-                          AI teacher integration will be available soon with ElevenLabs voice chat
-                        </p>
-                        <Button disabled variant="outline">
-                          Start Conversation
-                        </Button>
-                      </div>
+                      {!isTutorActive ? (
+                        <div className="text-center py-8">
+                          <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                          <p className="text-muted-foreground mb-4">
+                            Get personalized help and explanations about "{enhancedSubchapter.title}" from your AI tutor
+                          </p>
+                          <Button onClick={() => setIsTutorActive(true)} variant="default">
+                            Start Conversation
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h3 className="font-medium">Discussing: {enhancedSubchapter.title}</h3>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsTutorActive(false)}
+                            >
+                              End Conversation
+                            </Button>
+                          </div>
+                          <div className="border rounded-lg overflow-hidden">
+                            <AITutorWidget
+                              topic={enhancedSubchapter.title}
+                              ragContext={ragContent || enhancedSubchapter.text_description || ''}
+                              onClose={() => setIsTutorActive(false)}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -630,7 +675,7 @@ const SyllabusDetail = () => {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {enhancedSubchapter.rag_content ? (
+                      {ragContent ? (
                         <div className="space-y-4">
                           <div className="p-4 bg-muted rounded-lg">
                             <div className="text-sm prose prose-sm max-w-none">
@@ -638,7 +683,7 @@ const SyllabusDetail = () => {
                                 remarkPlugins={[remarkGfm]}
                                 rehypePlugins={[rehypeHighlight]}
                               >
-                                {enhancedSubchapter.rag_content}
+                                {ragContent}
                               </ReactMarkdown>
                             </div>
                           </div>
