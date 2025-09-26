@@ -41,11 +41,24 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-semibold mb-2">Study Syllabi</h1>
-          <p className="text-muted-foreground">
-            Create personalized learning experiences with Claude's help
-          </p>
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center mb-4">
+            <img src="/aula-logo.png" alt="Aula" className="h-16 w-16 mr-4" />
+            <div className="text-left">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                Aula
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                AI-Powered Learning Platform
+              </p>
+            </div>
+          </div>
+          <div className="max-w-2xl mx-auto">
+            <h2 className="text-2xl font-semibold mb-2 text-foreground">Study Syllabi</h2>
+            <p className="text-muted-foreground">
+              Create personalized learning experiences with AI-generated video content
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-6">
