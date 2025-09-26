@@ -44,7 +44,7 @@ const Dashboard = () => {
         <div className="mb-12 text-center">
           <div className="flex justify-center mb-6">
             <img 
-              src="/aula-logo-text.svg" 
+              src="/aula-logo.svg" 
               alt="Aula - The Best Learning Platform" 
               className="h-48 w-auto object-contain"
             />
