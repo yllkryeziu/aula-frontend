@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, FileText, MessageSquare, BookOpen, Loader2, CheckCircle2, Clock, ChevronRight, ChevronDown, Video, Circle, AlertTriangle, ChevronUp } from "lucide-react";
+import { ArrowLeft, MessageSquare, BookOpen, Loader2, CheckCircle2, Clock, ChevronRight, ChevronDown, Video, Circle, AlertTriangle, ChevronUp, PenTool } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -16,6 +16,7 @@ import { useSyllabus, useSyllabusStatusPolling, useVideoStatusPolling, useSubcha
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { ChapterStructureGenerator } from "@/components/ChapterStructureGenerator";
 import AITutorWidget from "@/components/AITutorWidget";
+import { DrawingCanvas } from "@/components/DrawingCanvas";
 import { Chapter, Subchapter, apiClient } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,6 +30,11 @@ const SyllabusDetail = () => {
   const [showFullContent, setShowFullContent] = useState(false);
   const [isTutorActive, setIsTutorActive] = useState(false);
   const [ragContent, setRagContent] = useState<string>('');
+
+  // Blackboard state persistence
+  const [blackboardData, setBlackboardData] = useState<string | null>(null);
+  const [blackboardAnalysis, setBlackboardAnalysis] = useState<string>('');
+  const [blackboardVideo, setBlackboardVideo] = useState<string>('');
 
   const { toast } = useToast();
   const { syllabus, loading: syllabusLoading, error: syllabusError } = useSyllabus(syllabusId!);
@@ -545,9 +551,9 @@ const SyllabusDetail = () => {
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Ask Teacher
                   </TabsTrigger>
-                  <TabsTrigger value="resources">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Resources
+                  <TabsTrigger value="blackboard">
+                    <PenTool className="h-4 w-4 mr-2" />
+                    Blackboard
                   </TabsTrigger>
                 </TabsList>
 
@@ -666,38 +672,17 @@ const SyllabusDetail = () => {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="resources" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Course Materials</CardTitle>
-                      <CardDescription>
-                        Related content from your uploaded documents
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {ragContent ? (
-                        <div className="space-y-4">
-                          <div className="p-4 bg-muted rounded-lg">
-                            <div className="text-sm prose prose-sm max-w-none">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[rehypeHighlight]}
-                              >
-                                {ragContent}
-                              </ReactMarkdown>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                          <p className="text-muted-foreground">
-                            No additional resources available for this lesson
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                <TabsContent value="blackboard" className="space-y-6">
+                  <DrawingCanvas
+                    subchapterId={enhancedSubchapter.id}
+                    subchapterTitle={enhancedSubchapter.title}
+                    persistedCanvasData={blackboardData}
+                    persistedAnalysis={blackboardAnalysis}
+                    persistedVideo={blackboardVideo}
+                    onCanvasDataChange={setBlackboardData}
+                    onAnalysisChange={setBlackboardAnalysis}
+                    onVideoChange={setBlackboardVideo}
+                  />
                 </TabsContent>
               </Tabs>
             </div>
