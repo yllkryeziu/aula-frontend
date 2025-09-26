@@ -42,13 +42,16 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto">
         <div className="mb-12 text-center">
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-4">
             <img 
               src="/aula-logo.svg" 
-              alt="Aula - The Best Learning Platform" 
-              className="h-48 w-auto object-contain"
+              alt="Aula - The Best AI-Powered Learning Platform" 
+              className="h-32 w-auto object-contain"
             />
           </div>
+          <h1 className="text-2xl font-bold text-center text-foreground mb-6">
+            Best AI-Powered Visualiser and Explainer
+          </h1>
         </div>
 
         <div className="grid gap-6">
